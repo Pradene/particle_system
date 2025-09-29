@@ -57,7 +57,7 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 self.timer.update();
 
-                if let Some(renderer) = &self.renderer {
+                if let Some(renderer) = &mut self.renderer {
                     let delta_time = self.timer.delta_time();
 
                     match renderer.update(delta_time) {

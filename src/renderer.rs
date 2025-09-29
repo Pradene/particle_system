@@ -11,6 +11,7 @@ pub struct Renderer {
     queue: wgpu::Queue,
     surface: Option<wgpu::Surface<'static>>,
     surface_config: Option<wgpu::SurfaceConfiguration>,
+    depth_texture: Option<wgpu::TextureView>,
     compute_pipeline: Option<ComputePipeline>,
     render_pipeline: Option<RenderPipeline>,
     window: Option<Arc<Window>>,
@@ -50,6 +51,7 @@ impl Renderer {
             queue,
             surface: None,
             surface_config: None,
+            depth_texture: None,
             compute_pipeline: None,
             render_pipeline: None,
             window: None,
@@ -90,12 +92,31 @@ impl Renderer {
 
         surface.configure(&self.device, &config);
 
+        self.depth_texture = Some(self.create_depth_texture(size.width, size.height));
         self.compute_pipeline = Some(ComputePipeline::new(&self.device, &self.queue));
         self.render_pipeline = Some(RenderPipeline::new(&self.device, surface_format));
 
         self.window = Some(window);
         self.surface = Some(surface);
         self.surface_config = Some(config);
+    }
+
+    fn create_depth_texture(&self, width: u32, height: u32) -> wgpu::TextureView {
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -106,13 +127,20 @@ impl Renderer {
             config.width = new_size.width;
             config.height = new_size.height;
             surface.configure(&self.device, config);
+
+            self.depth_texture = Some(self.create_depth_texture(new_size.width, new_size.height));
         }
     }
 
-    pub fn update(&self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
-        if let (Some(surface), Some(compute_pipeline), Some(render_pipeline)) =
-            (&self.surface, &self.compute_pipeline, &self.render_pipeline)
-        {
+    pub fn update(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
+        if let (Some(surface), Some(compute_pipeline), Some(render_pipeline), Some(depth_view)) = (
+            &self.surface,
+            &mut self.compute_pipeline,
+            &self.render_pipeline,
+            &self.depth_texture,
+        ) {
+            compute_pipeline.update_uniforms(&self.queue, delta_time);
+
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -124,11 +152,12 @@ impl Renderer {
                     label: Some("Main Encoder"),
                 });
 
-            compute_pipeline.compute(&mut encoder, delta_time);
+            compute_pipeline.compute(&mut encoder);
 
             render_pipeline.render(
                 &mut encoder,
                 &view,
+                depth_view,
                 compute_pipeline.particle_buffer(),
                 compute_pipeline.particles_count(),
             );

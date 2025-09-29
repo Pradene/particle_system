@@ -30,15 +30,16 @@ pub struct ComputeUniforms {
 
 pub struct ComputePipeline {
     pipeline: wgpu::ComputePipeline,
-    bind_group: wgpu::BindGroup,
-    particle_buffer: wgpu::Buffer,
+    bind_groups: [wgpu::BindGroup; 2],
+    particle_buffers: [wgpu::Buffer; 2],
     particles_count: u32,
     uniform_buffer: wgpu::Buffer,
+    current_buffer: usize,
 }
 
 impl ComputePipeline {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let particles_count = 100;
+        let particles_count = 1024;
         let buffer_size = (particles_count as usize * std::mem::size_of::<Particle>()) as u64;
 
         // Initialize particles
@@ -47,27 +48,37 @@ impl ComputePipeline {
         for _ in 0..particles_count {
             let x = rng.random_range(-1.0..1.0);
             let y = rng.random_range(-1.0..1.0);
-            let z = rng.random_range(-1.0..1.0);
+            let z = rng.random_range(0.0..1.0);
             particles.push(Particle {
                 position: [x, y, z],
                 velocity: [0.0, 0.0, 0.0],
             });
         }
 
-        // Create particle buffer
-        let particle_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Particle Buffer"),
-            size: buffer_size,
-            usage: wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::VERTEX
-                | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let particle_buffers = [
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Particle Buffer 0"),
+                size: buffer_size,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Particle Buffer 1"),
+                size: buffer_size,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+        ];
+
+        queue.write_buffer(&particle_buffers[0], 0, bytemuck::cast_slice(&particles));
+        queue.write_buffer(&particle_buffers[1], 0, bytemuck::cast_slice(&particles));
 
         // Create uniforms buffer
-        let uniforms = ComputeUniforms {
-            delta_time: 0.0,
-        };
+        let uniforms = ComputeUniforms { delta_time: 0.0 };
 
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Uniform Buffer"),
@@ -88,8 +99,20 @@ impl ComputePipeline {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Compute Bind Group Layout"),
             entries: &[
+                // Binding 0: Read-only input buffer
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                // Binding 1: Write-only output buffer
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: false },
@@ -98,8 +121,9 @@ impl ComputePipeline {
                     },
                     count: None,
                 },
+                // Binding 2: Uniforms
                 wgpu::BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -111,21 +135,46 @@ impl ComputePipeline {
             ],
         });
 
-        // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Compute Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: particle_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        // Create bind groups: [0] reads from buffer 0, writes to buffer 1
+        //                     [1] reads from buffer 1, writes to buffer 0
+        let bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Compute Bind Group 0"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: particle_buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: particle_buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: uniform_buffer.as_entire_binding(),
+                    },
+                ],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Compute Bind Group 1"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: particle_buffers[1].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: particle_buffers[0].as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: uniform_buffer.as_entire_binding(),
+                    },
+                ],
+            }),
+        ];
 
         // Create pipeline layout
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -144,32 +193,36 @@ impl ComputePipeline {
             cache: None,
         });
 
-        // Upload initial particle data
-        queue.write_buffer(&particle_buffer, 0, bytemuck::cast_slice(&particles));
-
         Self {
             pipeline,
-            bind_group,
-            particle_buffer,
+            bind_groups,
+            particle_buffers,
             uniform_buffer,
             particles_count,
+            current_buffer: 0,
         }
     }
 
-    pub fn compute(&self, encoder: &mut wgpu::CommandEncoder, delta_time: f32) {
-        let _ = ComputeUniforms { delta_time };
-        
+    pub fn update_uniforms(&self, queue: &wgpu::Queue, delta_time: f32) {
+        let uniforms = ComputeUniforms { delta_time };
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+    }
+
+    pub fn compute(&mut self, encoder: &mut wgpu::CommandEncoder) {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Compute Pass"),
             timestamp_writes: None,
         });
+
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &self.bind_group, &[]);
+        compute_pass.set_bind_group(0, &self.bind_groups[self.current_buffer], &[]);
         compute_pass.dispatch_workgroups(self.particles_count.div_ceil(64), 1, 1);
+
+        self.current_buffer = 1 - self.current_buffer;
     }
 
     pub fn particle_buffer(&self) -> &wgpu::Buffer {
-        &self.particle_buffer
+        &self.particle_buffers[1 - self.current_buffer]
     }
 
     pub fn particles_count(&self) -> u32 {
