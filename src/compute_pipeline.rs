@@ -1,5 +1,3 @@
-use rand::Rng;
-
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
@@ -39,22 +37,10 @@ pub struct ComputePipeline {
 
 impl ComputePipeline {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let particles_count = 1024;
+        let particles_count: u32 = 1024;
         let buffer_size = (particles_count as usize * std::mem::size_of::<Particle>()) as u64;
 
-        // Initialize particles
-        let mut particles = Vec::new();
-        let mut rng = rand::rng();
-        for _ in 0..particles_count {
-            let x = rng.random_range(-1.0..1.0);
-            let y = rng.random_range(-1.0..1.0);
-            let z = rng.random_range(0.0..1.0);
-            particles.push(Particle {
-                position: [x, y, z],
-                velocity: [0.0, 0.0, 0.0],
-            });
-        }
-
+        // Create particle buffers
         let particle_buffers = [
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Particle Buffer 0"),
@@ -74,8 +60,80 @@ impl ComputePipeline {
             }),
         ];
 
-        queue.write_buffer(&particle_buffers[0], 0, bytemuck::cast_slice(&particles));
-        queue.write_buffer(&particle_buffers[1], 0, bytemuck::cast_slice(&particles));
+        // Create initialization shader
+        let init_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Particle Init Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/particle.wgsl").into()),
+        });
+
+        // Create bind group layout for initialization
+        let init_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Init Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        // Create bind groups for initialization
+        let init_bind_groups = [
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Init Bind Group 0"),
+                layout: &init_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: particle_buffers[0].as_entire_binding(),
+                }],
+            }),
+            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Init Bind Group 1"),
+                layout: &init_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: particle_buffers[1].as_entire_binding(),
+                }],
+            }),
+        ];
+
+        // Create initialization pipeline
+        let init_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Init Pipeline Layout"),
+            bind_group_layouts: &[&init_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let init_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Init Pipeline"),
+            layout: Some(&init_pipeline_layout),
+            module: &init_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
+
+        // Initialize both buffers on GPU
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Init Encoder"),
+        });
+
+        for i in 0..2 {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Init Compute Pass"),
+                timestamp_writes: None,
+            });
+            compute_pass.set_pipeline(&init_pipeline);
+            compute_pass.set_bind_group(0, &init_bind_groups[i], &[]);
+            compute_pass.dispatch_workgroups(particles_count.div_ceil(64), 1, 1);
+        }
+
+        queue.submit(Some(encoder.finish()));
 
         // Create uniforms buffer
         let uniforms = ComputeUniforms { delta_time: 0.0 };
@@ -99,7 +157,6 @@ impl ComputePipeline {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Compute Bind Group Layout"),
             entries: &[
-                // Binding 0: Read-only input buffer
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -110,7 +167,6 @@ impl ComputePipeline {
                     },
                     count: None,
                 },
-                // Binding 1: Write-only output buffer
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -121,7 +177,6 @@ impl ComputePipeline {
                     },
                     count: None,
                 },
-                // Binding 2: Uniforms
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
