@@ -113,8 +113,6 @@ impl Renderer {
         if let (Some(surface), Some(compute_pipeline), Some(render_pipeline)) =
             (&self.surface, &self.compute_pipeline, &self.render_pipeline)
         {
-            compute_pipeline.update(&self.device, &self.queue, delta_time);
-
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -123,8 +121,10 @@ impl Renderer {
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
+                    label: Some("Main Encoder"),
                 });
+
+            compute_pipeline.compute(&mut encoder, delta_time);
 
             render_pipeline.render(
                 &mut encoder,

@@ -3,14 +3,14 @@ use rand::Rng;
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
-    position: [f32; 2],
-    velocity: [f32; 2],
+    position: [f32; 3],
+    velocity: [f32; 3],
 }
 
 impl Particle {
     const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
-        0 => Float32x2,
-        1 => Float32x2,
+        0 => Float32x3,
+        1 => Float32x3,
     ];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -47,9 +47,10 @@ impl ComputePipeline {
         for _ in 0..particles_count {
             let x = rng.random_range(-1.0..1.0);
             let y = rng.random_range(-1.0..1.0);
+            let z = rng.random_range(-1.0..1.0);
             particles.push(Particle {
-                position: [x, y],
-                velocity: [0.0, 0.0],
+                position: [x, y, z],
+                velocity: [0.0, 0.0, 0.0],
             });
         }
 
@@ -155,27 +156,16 @@ impl ComputePipeline {
         }
     }
 
-    pub fn update(&self, device: &wgpu::Device, queue: &wgpu::Queue, delta_time: f32) {
-        let uniforms = ComputeUniforms {
-            delta_time,
-        };
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
-
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Compute Encoder"),
+    pub fn compute(&self, encoder: &mut wgpu::CommandEncoder, delta_time: f32) {
+        let _ = ComputeUniforms { delta_time };
+        
+        let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("Compute Pass"),
+            timestamp_writes: None,
         });
-
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Compute Pass"),
-                timestamp_writes: None,
-            });
-            compute_pass.set_pipeline(&self.pipeline);
-            compute_pass.set_bind_group(0, &self.bind_group, &[]);
-            compute_pass.dispatch_workgroups(self.particles_count.div_ceil(64), 1, 1);
-        }
-
-        queue.submit(Some(encoder.finish()));
+        compute_pass.set_pipeline(&self.pipeline);
+        compute_pass.set_bind_group(0, &self.bind_group, &[]);
+        compute_pass.dispatch_workgroups(self.particles_count.div_ceil(64), 1, 1);
     }
 
     pub fn particle_buffer(&self) -> &wgpu::Buffer {
