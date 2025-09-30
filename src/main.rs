@@ -1,4 +1,5 @@
 mod app;
+mod camera;
 mod compute_pipeline;
 mod render_pipeline;
 mod renderer;

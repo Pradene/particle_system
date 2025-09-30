@@ -36,15 +36,15 @@ fn main(
     if (index >= arrayLength(&particles)) {
         return;
     }
-    
+
     var seed_x = hash3(index, 0u, 0u);
     var seed_y = hash3(index, 1u, 0u);
     var seed_z = hash3(index, 2u, 0u);
-    
+
     let x = random_float(&seed_x) * 2.0 - 1.0;
     let y = random_float(&seed_y) * 2.0 - 1.0;
-    let z = random_float(&seed_z);
-    
-    particles[index].position = vec3<f32>(x, y, z);
+    let z = random_float(&seed_z) * 2.0 - 1.0;
+
+    particles[index].position = normalize(vec3<f32>(x, y, z));
     particles[index].velocity = vec3<f32>(0.0, 0.0, 0.0);
 }

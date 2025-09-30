@@ -18,12 +18,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
+    let dt = uniforms.delta_time;
+
     // Read from input buffer
     let particle = particles_in[index];
 
     // Update particle
     var new_velocity = particle.velocity;
-    var new_position = particle.position;
+    var new_position = particle.position + particle.velocity * dt;
 
     // Write to output buffer
     particles_out[index].position = new_position;

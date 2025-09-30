@@ -1,5 +1,10 @@
 use {
-    crate::{compute_pipeline::ComputePipeline, render_pipeline::RenderPipeline},
+    crate::{
+        camera::{Camera, CameraUniform},
+        compute_pipeline::ComputePipeline,
+        render_pipeline::RenderPipeline,
+    },
+    glam::vec3,
     std::sync::Arc,
     winit::window::Window,
 };
@@ -15,6 +20,7 @@ pub struct Renderer {
     compute_pipeline: Option<ComputePipeline>,
     render_pipeline: Option<RenderPipeline>,
     window: Option<Arc<Window>>,
+    pub camera: Camera,
 }
 
 impl Renderer {
@@ -44,6 +50,16 @@ impl Renderer {
             .await
             .unwrap();
 
+        let camera = Camera::new(
+            vec3(0.0, 0.0, 10.0),
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0),
+            1080.0 / 720.0,
+            80.0,
+            0.1,
+            100.0,
+        );
+
         Self {
             instance,
             adapter,
@@ -55,6 +71,7 @@ impl Renderer {
             compute_pipeline: None,
             render_pipeline: None,
             window: None,
+            camera,
         }
     }
 
@@ -154,6 +171,8 @@ impl Renderer {
 
             compute_pipeline.compute(&mut encoder);
 
+            let camera_uniform = CameraUniform::new(&self.camera);
+            render_pipeline.update_camera(&self.queue, camera_uniform);
             render_pipeline.render(
                 &mut encoder,
                 &view,

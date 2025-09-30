@@ -23,7 +23,7 @@ impl Particle {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ComputeUniforms {
-    pub delta_time: f32,
+    delta_time: f32,
 }
 
 pub struct ComputePipeline {
@@ -37,7 +37,7 @@ pub struct ComputePipeline {
 
 impl ComputePipeline {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let particles_count: u32 = 1024;
+        let particles_count: u32 = 65536;
         let buffer_size = (particles_count as usize * std::mem::size_of::<Particle>()) as u64;
 
         // Create particle buffers
