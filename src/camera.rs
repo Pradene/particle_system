@@ -58,7 +58,7 @@ impl Camera {
         // Calculate initial yaw and pitch from eye-to-target direction
         let direction = (target - eye).normalize();
 
-        let yaw = direction.x.atan2(-direction.z);
+        let yaw = direction.x.atan2(direction.z);
         let pitch = direction.y.asin().clamp(-MAX_PITCH, MAX_PITCH);
 
         Self {
@@ -90,7 +90,7 @@ impl Camera {
         Vec3::new(
             self.yaw.sin() * self.pitch.cos(),
             self.pitch.sin(),
-            -self.yaw.cos() * self.pitch.cos(),
+            self.yaw.cos() * self.pitch.cos(),
         )
         .normalize()
     }
@@ -161,7 +161,7 @@ impl CameraController {
         self.mouse_delta = (0.0, 0.0);
 
         let forward = camera.direction();
-        let right = forward.cross(camera.up).normalize();
+        let right = camera.up.cross(forward).normalize();
 
         let mut movement = Vec3::ZERO;
         if self.is_forward_pressed {
