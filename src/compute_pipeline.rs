@@ -1,8 +1,8 @@
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
-    position: [f32; 3],
-    velocity: [f32; 3],
+    position: [f32; 4],
+    velocity: [f32; 4],
 }
 
 impl Particle {
@@ -24,6 +24,7 @@ impl Particle {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ComputeUniforms {
     delta_time: f32,
+    padding: [f32; 3],
 }
 
 pub struct ComputePipeline {
@@ -136,7 +137,10 @@ impl ComputePipeline {
         queue.submit(Some(encoder.finish()));
 
         // Create uniforms buffer
-        let uniforms = ComputeUniforms { delta_time: 0.0 };
+        let uniforms = ComputeUniforms {
+            delta_time: 0.0,
+            padding: [0.0; 3],
+        };
 
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Uniform Buffer"),
@@ -259,7 +263,10 @@ impl ComputePipeline {
     }
 
     pub fn update_uniforms(&self, queue: &wgpu::Queue, delta_time: f32) {
-        let uniforms = ComputeUniforms { delta_time };
+        let uniforms = ComputeUniforms {
+            delta_time,
+            padding: [0.0; 3],
+        };
         queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
     }
 

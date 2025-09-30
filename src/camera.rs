@@ -10,7 +10,7 @@ const MAX_PITCH: f32 = FRAC_PI_2 * 0.99; // Avoids gimbal lock
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     view_proj: [[f32; 4]; 4],
-    pos: [f32; 3],
+    position: [f32; 3],
     padding: f32,
 }
 
@@ -23,7 +23,7 @@ impl CameraUniform {
 
         Self {
             view_proj: view_proj.to_cols_array_2d(),
-            pos: camera.position().to_array(),
+            position: camera.position().to_array(),
             padding: 0.0,
         }
     }

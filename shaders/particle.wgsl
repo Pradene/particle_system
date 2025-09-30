@@ -13,38 +13,33 @@ fn hash(x: u32) -> u32 {
     return state;
 }
 
-fn hash3(x: u32, y: u32, z: u32) -> u32 {
-    var state = x * 1597334673u;
-    state = state ^ (y * 3812015801u);
-    state = state ^ (z * 2654435761u);
-    return hash(state);
-}
-
 fn random_float(state: ptr<function, u32>) -> f32 {
     *state = hash(*state);
-    let value = (*state >> 8u) & 0xFFFFFFu;
-    return f32(value) / 16777216.0;
+    return f32(*state) / f32(0xFFFFFFFFu);
+}
+
+fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
+    let u = random_float(state);
+    let v = random_float(state);
+
+    let theta = u * 2.0 * 3.14159265359;
+    let phi = acos(2.0 * v - 1.0);
+
+    let x = sin(phi) * cos(theta);
+    let y = sin(phi) * sin(theta);
+    let z = cos(phi);
+
+    return vec3<f32>(x, y, z);
 }
 
 @compute @workgroup_size(64)
-fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>
-) {
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
     if (index >= arrayLength(&particles)) {
         return;
     }
 
-    var seed_x = hash3(index, 0u, 0u);
-    var seed_y = hash3(index, 1u, 0u);
-    var seed_z = hash3(index, 2u, 0u);
-
-    let x = random_float(&seed_x) * 2.0 - 1.0;
-    let y = random_float(&seed_y) * 2.0 - 1.0;
-    let z = random_float(&seed_z) * 2.0 - 1.0;
-
-    particles[index].position = normalize(vec3<f32>(x, y, z));
+    var seed = hash(index * 123456789u);
+    particles[index].position = random_on_sphere(&seed);
     particles[index].velocity = vec3<f32>(0.0, 0.0, 0.0);
 }
