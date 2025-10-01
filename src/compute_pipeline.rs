@@ -35,19 +35,19 @@ pub struct ComputeUniforms {
 pub struct ComputePipeline {
     pipeline: wgpu::ComputePipeline,
     bind_groups: [wgpu::BindGroup; 2],
-    particle_buffers: [wgpu::Buffer; 2],
+    particles_buffers: [wgpu::Buffer; 2],
     particles_count: u32,
-    uniforms_buffer: wgpu::Buffer,
     current_buffer: usize,
+    uniforms_buffer: wgpu::Buffer,
 }
 
 impl ComputePipeline {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
-        let particles_count: u32 = 65536;
+        let particles_count: u32 = 2097152;
         let buffer_size = (particles_count as usize * std::mem::size_of::<Particle>()) as u64;
 
         // Create particle buffers
-        let particle_buffers = [
+        let particles_buffers = [
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Particle Buffer 0"),
                 size: buffer_size,
@@ -95,7 +95,7 @@ impl ComputePipeline {
                 layout: &init_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: particle_buffers[0].as_entire_binding(),
+                    resource: particles_buffers[0].as_entire_binding(),
                 }],
             }),
             device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -103,7 +103,7 @@ impl ComputePipeline {
                 layout: &init_bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: particle_buffers[1].as_entire_binding(),
+                    resource: particles_buffers[1].as_entire_binding(),
                 }],
             }),
         ];
@@ -210,11 +210,11 @@ impl ComputePipeline {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: particle_buffers[0].as_entire_binding(),
+                        resource: particles_buffers[0].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: particle_buffers[1].as_entire_binding(),
+                        resource: particles_buffers[1].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -228,11 +228,11 @@ impl ComputePipeline {
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
-                        resource: particle_buffers[1].as_entire_binding(),
+                        resource: particles_buffers[1].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 1,
-                        resource: particle_buffers[0].as_entire_binding(),
+                        resource: particles_buffers[0].as_entire_binding(),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -262,7 +262,7 @@ impl ComputePipeline {
         Self {
             pipeline,
             bind_groups,
-            particle_buffers,
+            particles_buffers,
             uniforms_buffer,
             particles_count,
             current_buffer: 0,
@@ -283,7 +283,7 @@ impl ComputePipeline {
     }
 
     pub fn particles_buffer(&self) -> &wgpu::Buffer {
-        &self.particle_buffers[1 - self.current_buffer]
+        &self.particles_buffers[1 - self.current_buffer]
     }
 
     pub fn particles_count(&self) -> u32 {

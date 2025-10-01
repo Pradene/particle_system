@@ -106,6 +106,11 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let delta_time = self.timer.tick();
 
+                if let Some(window) = &self.window{
+                    let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
+                    window.set_title(title.as_str());
+                }
+
                 if let Some(renderer) = &mut self.renderer {
                     self.camera_controller.update(&mut self.camera, delta_time);
                     match renderer.render(&self.camera, delta_time) {
