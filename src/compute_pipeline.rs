@@ -1,14 +1,17 @@
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
-    pub position: [f32; 4],
-    pub velocity: [f32; 4],
+    pub position: [f32; 3],
+    pub velocity: [f32; 3],
+    pub mass: f32,
+    pub padding: [f32; 1],
 }
 
 impl Particle {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
+    const ATTRIBUTES: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
         0 => Float32x3,
         1 => Float32x3,
+        2 => Float32,
     ];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {

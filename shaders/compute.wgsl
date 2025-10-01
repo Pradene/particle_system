@@ -1,10 +1,14 @@
 struct Particle {
     position: vec3<f32>,
     velocity: vec3<f32>,
+    mass: f32
 }
 
 struct ComputeUniforms {
     delta_time: f32,
+    gravity_strength: f32,
+    rotation_speed: f32,
+    drag_strength: f32,
 }
 
 @group(0) @binding(0) var<storage, read> particles_in: array<Particle>;
@@ -26,8 +30,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Update particle
     var new_velocity = particle.velocity;
     var new_position = particle.position + particle.velocity * dt;
+    var new_mass = particle.mass;
 
     // Write to output buffer
     particles_out[index].position = new_position;
     particles_out[index].velocity = new_velocity;
+    particles_out[index].mass = new_mass;
 }
