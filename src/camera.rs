@@ -154,7 +154,7 @@ impl CameraController {
         }
     }
 
-    pub fn update(&mut self, camera: &mut Camera, dt: f32) {
+    pub fn update(&mut self, camera: &mut Camera, delta_time: f32) {
         let (dx, dy) = self.mouse_delta;
         camera.yaw = camera.yaw + dx * self.sensitivity;
         camera.pitch = (camera.pitch - dy * self.sensitivity).clamp(-MAX_PITCH, MAX_PITCH);
@@ -179,7 +179,7 @@ impl CameraController {
         }
 
         if movement.length_squared() > 0.0 {
-            camera.eye += movement.normalize() * self.speed * dt;
+            camera.eye += movement.normalize() * self.speed * delta_time;
         }
     }
 }

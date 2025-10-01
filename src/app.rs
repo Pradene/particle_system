@@ -104,11 +104,9 @@ impl ApplicationHandler for App {
                 self.camera_controller.process_keyboard(state, keycode);
             }
             WindowEvent::RedrawRequested => {
-                self.timer.update();
+                let delta_time = self.timer.tick();
 
                 if let Some(renderer) = &mut self.renderer {
-                    let delta_time = self.timer.delta_time();
-
                     self.camera_controller.update(&mut self.camera, delta_time);
                     match renderer.render(&self.camera, delta_time) {
                         Ok(()) => {}
