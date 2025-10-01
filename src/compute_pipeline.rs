@@ -1,8 +1,8 @@
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
-    position: [f32; 4],
-    velocity: [f32; 4],
+    pub position: [f32; 4],
+    pub velocity: [f32; 4],
 }
 
 impl Particle {
@@ -23,8 +23,10 @@ impl Particle {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ComputeUniforms {
-    delta_time: f32,
-    padding: [f32; 3],
+    pub delta_time: f32,
+    pub gravity_strength: f32,
+    pub rotation_speed: f32,
+    pub drag_strength: f32,
 }
 
 pub struct ComputePipeline {
@@ -32,7 +34,7 @@ pub struct ComputePipeline {
     bind_groups: [wgpu::BindGroup; 2],
     particle_buffers: [wgpu::Buffer; 2],
     particles_count: u32,
-    uniform_buffer: wgpu::Buffer,
+    uniforms_buffer: wgpu::Buffer,
     current_buffer: usize,
 }
 
@@ -139,17 +141,19 @@ impl ComputePipeline {
         // Create uniforms buffer
         let uniforms = ComputeUniforms {
             delta_time: 0.0,
-            padding: [0.0; 3],
+            gravity_strength: 10.0,
+            rotation_speed: 1.0,
+            drag_strength: 1.5,
         };
 
-        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Uniform Buffer"),
             size: std::mem::size_of::<ComputeUniforms>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        queue.write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+        queue.write_buffer(&uniforms_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 
         // Create compute shader
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -211,7 +215,7 @@ impl ComputePipeline {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: uniform_buffer.as_entire_binding(),
+                        resource: uniforms_buffer.as_entire_binding(),
                     },
                 ],
             }),
@@ -229,7 +233,7 @@ impl ComputePipeline {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: uniform_buffer.as_entire_binding(),
+                        resource: uniforms_buffer.as_entire_binding(),
                     },
                 ],
             }),
@@ -256,18 +260,10 @@ impl ComputePipeline {
             pipeline,
             bind_groups,
             particle_buffers,
-            uniform_buffer,
+            uniforms_buffer,
             particles_count,
             current_buffer: 0,
         }
-    }
-
-    pub fn update_uniforms(&self, queue: &wgpu::Queue, delta_time: f32) {
-        let uniforms = ComputeUniforms {
-            delta_time,
-            padding: [0.0; 3],
-        };
-        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
     }
 
     pub fn compute(&mut self, encoder: &mut wgpu::CommandEncoder) {
@@ -283,11 +279,15 @@ impl ComputePipeline {
         self.current_buffer = 1 - self.current_buffer;
     }
 
-    pub fn particle_buffer(&self) -> &wgpu::Buffer {
+    pub fn particles_buffer(&self) -> &wgpu::Buffer {
         &self.particle_buffers[1 - self.current_buffer]
     }
 
     pub fn particles_count(&self) -> u32 {
         self.particles_count
+    }
+
+    pub fn uniforms_buffer(&self) -> &wgpu::Buffer {
+        &self.uniforms_buffer
     }
 }

@@ -2,8 +2,8 @@ use crate::{camera::CameraUniform, compute_pipeline::Particle};
 
 pub struct RenderPipeline {
     pipeline: wgpu::RenderPipeline,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
+    uniforms_buffer: wgpu::Buffer,
+    uniforms_bind_group: wgpu::BindGroup,
 }
 
 impl RenderPipeline {
@@ -14,7 +14,7 @@ impl RenderPipeline {
         });
 
         // Create camera uniform buffer
-        let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera Uniform Buffer"),
             size: std::mem::size_of::<CameraUniform>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -22,7 +22,7 @@ impl RenderPipeline {
         });
 
         // Create bind group layout for camera
-        let camera_bind_group_layout =
+        let uniforms_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Camera Bind Group Layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -38,18 +38,18 @@ impl RenderPipeline {
             });
 
         // Create camera bind group
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let uniforms_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Camera Bind Group"),
-            layout: &camera_bind_group_layout,
+            layout: &uniforms_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: camera_buffer.as_entire_binding(),
+                resource: uniforms_buffer.as_entire_binding(),
             }],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&camera_bind_group_layout],
+            bind_group_layouts: &[&uniforms_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -106,17 +106,9 @@ impl RenderPipeline {
 
         Self {
             pipeline,
-            camera_buffer,
-            camera_bind_group,
+            uniforms_buffer,
+            uniforms_bind_group,
         }
-    }
-
-    pub fn update_camera(&self, queue: &wgpu::Queue, camera_uniform: CameraUniform) {
-        queue.write_buffer(
-            &self.camera_buffer,
-            0,
-            bytemuck::cast_slice(&[camera_uniform]),
-        );
     }
 
     pub fn render(
@@ -156,8 +148,12 @@ impl RenderPipeline {
         });
 
         render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+        render_pass.set_bind_group(0, &self.uniforms_bind_group, &[]);
         render_pass.set_vertex_buffer(0, particle_buffer.slice(..));
         render_pass.draw(0..6, 0..num_particles);
+    }
+
+    pub fn uniforms_buffer(&self) -> &wgpu::Buffer {
+        &self.uniforms_buffer
     }
 }

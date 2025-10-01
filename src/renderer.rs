@@ -1,10 +1,9 @@
 use {
     crate::{
-        camera::{Camera, CameraUniform},
-        compute_pipeline::ComputePipeline,
+        camera::Camera,
+        compute_pipeline::{ComputePipeline, ComputeUniforms},
         render_pipeline::RenderPipeline,
     },
-    glam::vec3,
     std::sync::Arc,
     winit::window::Window,
 };
@@ -20,7 +19,6 @@ pub struct Renderer {
     compute_pipeline: Option<ComputePipeline>,
     render_pipeline: Option<RenderPipeline>,
     window: Option<Arc<Window>>,
-    pub camera: Camera,
 }
 
 impl Renderer {
@@ -50,16 +48,6 @@ impl Renderer {
             .await
             .unwrap();
 
-        let camera = Camera::new(
-            vec3(0.0, 0.0, 10.0),
-            vec3(0.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0),
-            1080.0 / 720.0,
-            80.0,
-            0.1,
-            100.0,
-        );
-
         Self {
             instance,
             adapter,
@@ -71,7 +59,6 @@ impl Renderer {
             compute_pipeline: None,
             render_pipeline: None,
             window: None,
-            camera,
         }
     }
 
@@ -149,15 +136,13 @@ impl Renderer {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, camera: &Camera, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
         if let (Some(surface), Some(compute_pipeline), Some(render_pipeline), Some(depth_view)) = (
             &self.surface,
             &mut self.compute_pipeline,
             &self.render_pipeline,
             &self.depth_texture,
         ) {
-            compute_pipeline.update_uniforms(&self.queue, delta_time);
-
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
@@ -169,15 +154,30 @@ impl Renderer {
                     label: Some("Main Encoder"),
                 });
 
+            let uniforms = ComputeUniforms {
+                delta_time,
+                gravity_strength: 10.0,
+                rotation_speed: 1.0,
+                drag_strength: 1.5,
+            };
+
+            self.queue.write_buffer(
+                compute_pipeline.uniforms_buffer(),
+                0,
+                bytemuck::cast_slice(&[uniforms]),
+            );
             compute_pipeline.compute(&mut encoder);
 
-            let camera_uniform = CameraUniform::new(&self.camera);
-            render_pipeline.update_camera(&self.queue, camera_uniform);
+            self.queue.write_buffer(
+                render_pipeline.uniforms_buffer(),
+                0,
+                bytemuck::cast_slice(&[camera.uniforms()]),
+            );
             render_pipeline.render(
                 &mut encoder,
                 &view,
                 depth_view,
-                compute_pipeline.particle_buffer(),
+                compute_pipeline.particles_buffer(),
                 compute_pipeline.particles_count(),
             );
 

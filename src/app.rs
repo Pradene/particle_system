@@ -1,5 +1,10 @@
 use {
-    crate::{camera::CameraController, renderer::Renderer, timer::Timer},
+    crate::{
+        camera::{Camera, CameraController},
+        renderer::Renderer,
+        timer::Timer,
+    },
+    glam::vec3,
     std::sync::Arc,
     winit::{
         application::ApplicationHandler,
@@ -15,7 +20,8 @@ use {
 pub struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
-    controller: CameraController,
+    camera: Camera,
+    camera_controller: CameraController,
     timer: Timer,
 }
 
@@ -34,15 +40,25 @@ impl ApplicationHandler for App {
         renderer.create_surface(window);
         self.renderer = Some(renderer);
 
+        self.camera = Camera::new(
+            vec3(0.0, 0.0, 10.0),
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0),
+            1080.0 / 720.0,
+            80.0,
+            0.1,
+            100.0,
+        );
+
         self.timer = Timer::new();
-        self.controller = CameraController::new();
+        self.camera_controller = CameraController::new();
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
-        let controller = &mut self.controller;
+        let camera_controller = &mut self.camera_controller;
         match event {
             DeviceEvent::MouseMotion { delta: (dx, dy) } => {
-                controller.process_mouse(dx as f32, dy as f32);
+                camera_controller.process_mouse(dx as f32, dy as f32);
 
                 // reset cursor to center
                 if let Some(window) = &self.window {
@@ -70,6 +86,8 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             }
             WindowEvent::Resized(physical_size) => {
+                self.camera
+                    .resize(physical_size.width, physical_size.height);
                 if let Some(renderer) = &mut self.renderer {
                     renderer.resize(physical_size);
                 }
@@ -83,7 +101,7 @@ impl ApplicationHandler for App {
                     },
                 ..
             } => {
-                self.controller.process_keyboard(state, keycode);
+                self.camera_controller.process_keyboard(state, keycode);
             }
             WindowEvent::RedrawRequested => {
                 self.timer.update();
@@ -91,8 +109,8 @@ impl ApplicationHandler for App {
                 if let Some(renderer) = &mut self.renderer {
                     let delta_time = self.timer.delta_time();
 
-                    self.controller.update(&mut renderer.camera, delta_time);
-                    match renderer.update(delta_time) {
+                    self.camera_controller.update(&mut self.camera, delta_time);
+                    match renderer.render(&self.camera, delta_time) {
                         Ok(()) => {}
                         Err(wgpu::SurfaceError::Lost) => {
                             if let (Some(window), Some(renderer)) =

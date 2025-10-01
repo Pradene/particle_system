@@ -16,10 +16,7 @@ pub struct CameraUniform {
 
 impl CameraUniform {
     pub fn new(camera: &Camera) -> Self {
-        let view = camera.look_at();
-        let proj = camera.projection();
-
-        let view_proj = proj * view;
+        let view_proj = camera.view_proj();
 
         Self {
             view_proj: view_proj.to_cols_array_2d(),
@@ -83,7 +80,7 @@ impl Camera {
     }
 
     pub fn view_proj(&self) -> Mat4 {
-        self.projection * self.look_at()
+        self.projection() * self.look_at()
     }
 
     pub fn direction(&self) -> Vec3 {
@@ -102,6 +99,10 @@ impl Camera {
     pub fn resize(&mut self, width: u32, height: u32) {
         self.aspect = width as f32 / height as f32;
         self.projection = Mat4::perspective_rh(self.fov_y, self.aspect, self.near, self.far);
+    }
+
+    pub fn uniforms(&self) -> CameraUniform {
+        CameraUniform::new(self)
     }
 }
 

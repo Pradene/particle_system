@@ -21,6 +21,7 @@ fn random_float(state: ptr<function, u32>) -> f32 {
 fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
     let u = random_float(state);
     let v = random_float(state);
+    let scale = random_float(state) + 0.5;
 
     let theta = u * 2.0 * 3.14159265359;
     let phi = acos(2.0 * v - 1.0);
@@ -29,7 +30,7 @@ fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
     let y = sin(phi) * sin(theta);
     let z = cos(phi);
 
-    return vec3<f32>(x, y, z);
+    return vec3<f32>(x, y, z) * scale;
 }
 
 @compute @workgroup_size(64)
