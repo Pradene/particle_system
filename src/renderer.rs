@@ -1,12 +1,4 @@
-use {
-    crate::{
-        camera::Camera,
-        compute_pipeline::{ComputePipeline, ComputeUniforms},
-        render_pipeline::RenderPipeline,
-    },
-    std::sync::Arc,
-    winit::window::Window,
-};
+use {std::sync::Arc, winit::window::Window};
 
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -16,8 +8,6 @@ pub struct Renderer {
     surface: Option<wgpu::Surface<'static>>,
     surface_config: Option<wgpu::SurfaceConfiguration>,
     depth_texture: Option<wgpu::TextureView>,
-    compute_pipeline: Option<ComputePipeline>,
-    render_pipeline: Option<RenderPipeline>,
     window: Option<Arc<Window>>,
 }
 
@@ -56,8 +46,6 @@ impl Renderer {
             surface: None,
             surface_config: None,
             depth_texture: None,
-            compute_pipeline: None,
-            render_pipeline: None,
             window: None,
         }
     }
@@ -97,9 +85,6 @@ impl Renderer {
         surface.configure(&self.device, &config);
 
         self.depth_texture = Some(self.create_depth_texture(size.width, size.height));
-        self.compute_pipeline = Some(ComputePipeline::new(&self.device, &self.queue));
-        self.render_pipeline = Some(RenderPipeline::new(&self.device, surface_format));
-
         self.window = Some(window);
         self.surface = Some(surface);
         self.surface_config = Some(config);
@@ -136,54 +121,65 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, camera: &Camera, delta_time: f32) -> Result<(), wgpu::SurfaceError> {
-        if let (Some(surface), Some(compute_pipeline), Some(render_pipeline), Some(depth_view)) = (
-            &self.surface,
-            &mut self.compute_pipeline,
-            &self.render_pipeline,
-            &self.depth_texture,
-        ) {
+    pub fn begin_frame(&self) -> Result<RenderFrame, wgpu::SurfaceError> {
+        if let (Some(surface), Some(depth_view)) = (&self.surface, &self.depth_texture) {
             let output = surface.get_current_texture()?;
             let view = output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut encoder = self
+            let encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("Main Encoder"),
                 });
 
-            let uniforms = ComputeUniforms {
-                delta_time,
-                gravity_strength: 10.0,
-                rotation_speed: 1.0,
-                drag_strength: 1.5,
-            };
-
-            self.queue.write_buffer(
-                compute_pipeline.uniforms_buffer(),
-                0,
-                bytemuck::cast_slice(&[uniforms]),
-            );
-            compute_pipeline.compute(&mut encoder);
-
-            self.queue.write_buffer(
-                render_pipeline.uniforms_buffer(),
-                0,
-                bytemuck::cast_slice(&[camera.uniforms()]),
-            );
-            render_pipeline.render(
-                &mut encoder,
-                &view,
-                depth_view,
-                compute_pipeline.particles_buffer(),
-                compute_pipeline.particles_count(),
-            );
-
-            self.queue.submit(std::iter::once(encoder.finish()));
-            output.present();
+            Ok(RenderFrame {
+                output,
+                view,
+                depth_view: depth_view.clone(),
+                encoder,
+            })
+        } else {
+            Err(wgpu::SurfaceError::Lost)
         }
-        Ok(())
+    }
+
+    pub fn end_frame(&self, frame: RenderFrame) {
+        self.queue.submit(std::iter::once(frame.encoder.finish()));
+        frame.output.present();
+    }
+
+    pub fn device(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
+    pub fn surface_format(&self) -> Option<wgpu::TextureFormat> {
+        self.surface_config.as_ref().map(|c| c.format)
+    }
+}
+
+pub struct RenderFrame {
+    output: wgpu::SurfaceTexture,
+    view: wgpu::TextureView,
+    depth_view: wgpu::TextureView,
+    encoder: wgpu::CommandEncoder,
+}
+
+impl RenderFrame {
+    pub fn view(&self) -> &wgpu::TextureView {
+        &self.view
+    }
+
+    pub fn depth_view(&self) -> &wgpu::TextureView {
+        &self.depth_view
+    }
+
+    pub fn encoder_mut(&mut self) -> &mut wgpu::CommandEncoder {
+        &mut self.encoder
     }
 }

@@ -6,26 +6,6 @@ use {
 
 const MAX_PITCH: f32 = FRAC_PI_2 * 0.99; // Avoids gimbal lock
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct CameraUniform {
-    view_proj: [[f32; 4]; 4],
-    position: [f32; 3],
-    padding: [f32; 1],
-}
-
-impl CameraUniform {
-    pub fn new(camera: &Camera) -> Self {
-        let view_proj = camera.view_proj();
-
-        Self {
-            view_proj: view_proj.to_cols_array_2d(),
-            position: camera.position().to_array(),
-            padding: [0.0],
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct Camera {
     eye: Vec3,
@@ -100,10 +80,6 @@ impl Camera {
         self.aspect = width as f32 / height as f32;
         self.projection = Mat4::perspective_rh(self.fov_y, self.aspect, self.near, self.far);
     }
-
-    pub fn uniforms(&self) -> CameraUniform {
-        CameraUniform::new(self)
-    }
 }
 
 #[derive(Default)]
@@ -156,7 +132,7 @@ impl CameraController {
 
     pub fn update(&mut self, camera: &mut Camera, delta_time: f32) {
         let (dx, dy) = self.mouse_delta;
-        camera.yaw = camera.yaw + dx * self.sensitivity;
+        camera.yaw += dx * self.sensitivity;
         camera.pitch = (camera.pitch - dy * self.sensitivity).clamp(-MAX_PITCH, MAX_PITCH);
 
         self.mouse_delta = (0.0, 0.0);

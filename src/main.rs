@@ -1,7 +1,6 @@
 mod app;
 mod camera;
-mod compute_pipeline;
-mod render_pipeline;
+mod particle_system;
 mod renderer;
 mod timer;
 

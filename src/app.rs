@@ -1,6 +1,7 @@
 use {
     crate::{
         camera::{Camera, CameraController},
+        particle_system::ParticleSystem,
         renderer::Renderer,
         timer::Timer,
     },
@@ -23,6 +24,7 @@ pub struct App {
     camera: Camera,
     camera_controller: CameraController,
     timer: Timer,
+    particle_system: Option<ParticleSystem>,
 }
 
 impl ApplicationHandler for App {
@@ -38,7 +40,6 @@ impl ApplicationHandler for App {
 
         let mut renderer = pollster::block_on(Renderer::new());
         renderer.create_surface(window);
-        self.renderer = Some(renderer);
 
         self.camera = Camera::new(
             vec3(0.0, 0.0, 10.0),
@@ -50,24 +51,29 @@ impl ApplicationHandler for App {
             100.0,
         );
 
+        if let Some(surface_format) = renderer.surface_format() {
+            let mut particle_system = ParticleSystem::new(renderer.device(), surface_format, 65536);
+
+            particle_system.emit(renderer.device(), renderer.queue());
+
+            self.particle_system = Some(particle_system);
+        }
+
+        self.renderer = Some(renderer);
         self.timer = Timer::new();
         self.camera_controller = CameraController::new();
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
-        let camera_controller = &mut self.camera_controller;
-        match event {
-            DeviceEvent::MouseMotion { delta: (dx, dy) } => {
-                camera_controller.process_mouse(dx as f32, dy as f32);
+        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
+            self.camera_controller.process_mouse(dx as f32, dy as f32);
 
-                // reset cursor to center
-                if let Some(window) = &self.window {
-                    let size = window.inner_size();
-                    let center = PhysicalPosition::new(size.width / 2, size.height / 2);
-                    window.set_cursor_position(center).unwrap();
-                }
+            // reset cursor to center
+            if let Some(window) = &self.window {
+                let size = window.inner_size();
+                let center = PhysicalPosition::new(size.width / 2, size.height / 2);
+                window.set_cursor_position(center).unwrap();
             }
-            _ => {}
         }
     }
 
@@ -106,15 +112,22 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let delta_time = self.timer.tick();
 
-                if let Some(window) = &self.window{
+                if let Some(window) = &self.window {
                     let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
                     window.set_title(title.as_str());
                 }
 
                 if let Some(renderer) = &mut self.renderer {
                     self.camera_controller.update(&mut self.camera, delta_time);
-                    match renderer.render(&self.camera, delta_time) {
-                        Ok(()) => {}
+                    match renderer.begin_frame() {
+                        Ok(mut frame) => {
+                            if let Some(particle_system) = &mut self.particle_system {
+                                particle_system.update(renderer.queue(), &mut frame, delta_time);
+                                particle_system.render(renderer.queue(), &mut frame, &self.camera);
+                            }
+
+                            renderer.end_frame(frame);
+                        }
                         Err(wgpu::SurfaceError::Lost) => {
                             if let (Some(window), Some(renderer)) =
                                 (&self.window, &mut self.renderer)
