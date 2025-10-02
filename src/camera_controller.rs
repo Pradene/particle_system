@@ -55,10 +55,11 @@ impl CameraController {
         let (dx, dy) = self.mouse_delta;
         camera.rotate(dx * self.sensitivity, dy * self.sensitivity);
 
-        self.mouse_delta = (0.0, 0.0);
-
         let forward = camera.direction();
-        let right = camera.right();
+        let up = glam::vec3(0.0, 1.0, 0.0);
+        let right = up.cross(forward);
+
+        camera.look_at(camera.position() + forward);
 
         let mut movement = glam::Vec3::ZERO;
         if self.is_forward_pressed {
@@ -77,5 +78,7 @@ impl CameraController {
         if movement.length_squared() > 0.0 {
             camera.translate(movement.normalize() * self.speed * delta_time);
         }
+
+        self.mouse_delta = (0.0, 0.0);
     }
 }
