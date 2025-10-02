@@ -30,14 +30,12 @@ impl Camera {
         far: f32,
     ) -> Self {
         let fov_y = 2.0 * (fov_x / 2.0).tan().atan2(aspect);
-        let projection = Mat4::perspective_rh(fov_y, aspect, near, far);
 
-        // Calculate initial yaw and pitch from eye-to-target direction
         let direction = (target - eye).normalize();
-
         let yaw = direction.x.atan2(direction.z);
         let pitch = direction.y.asin().clamp(-MAX_PITCH, MAX_PITCH);
 
+        let projection = Self::perspective(fov_y, aspect, near, far);
         let view = Mat4::look_at_rh(eye, target, up);
 
         Self {
@@ -81,7 +79,7 @@ impl Camera {
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.aspect = width as f32 / height as f32;
-        self.projection = Mat4::perspective_rh(self.fov_y, self.aspect, self.near, self.far);
+        self.projection = Self::perspective(self.fov_y, self.aspect, self.near, self.far);
     }
 
     pub fn look_at(&mut self, target: Vec3) {
@@ -93,7 +91,21 @@ impl Camera {
     }
 
     pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        self.yaw += delta_yaw;
         self.pitch = (self.pitch + delta_pitch).clamp(-MAX_PITCH, MAX_PITCH);
+        self.yaw = self.yaw + delta_yaw;
+    }
+
+    pub fn perspective(fov_y_radians: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
+        let (sin_fov, cos_fov) = f32::sin_cos(0.5 * fov_y_radians);
+        let h = -cos_fov / sin_fov;
+        let w = h / aspect_ratio;
+        let r = z_far / (z_near - z_far);
+
+        glam::Mat4::from_cols(
+            glam::Vec4::new(w, 0.0, 0.0, 0.0),
+            glam::Vec4::new(0.0, h, 0.0, 0.0),
+            glam::Vec4::new(0.0, 0.0, r, -1.0),
+            glam::Vec4::new(0.0, 0.0, r * z_near, 0.0),
+        )
     }
 }

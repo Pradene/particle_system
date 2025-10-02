@@ -9,6 +9,8 @@ var<uniform> camera: CameraUniform;
 struct Particle {
     @location(0) position: vec3<f32>,
     @location(1) velocity: vec3<f32>,
+    @location(2) mass: f32,
+    @location(3) lifetime: f32,
 }
 
 struct VertexOutput {
@@ -38,17 +40,14 @@ fn vs_main(
     let particle_size = 0.01;
     let vertex_offset = VERTICES[vertex_index] * particle_size;
 
-    // Calculate billboard orientation
     let to_camera = normalize(camera.position - particle.position);
-    let up = vec3<f32>(0.0, 1.0, 0.0);
-    let right = normalize(cross(up, to_camera));
-    let actual_up = cross(to_camera, right);
+    let right = cross(vec3<f32>(0.0, 1.0, 0.0), to_camera);
+    let up = cross(to_camera, right);
 
-    // Construct world position using billboard basis vectors
-    let world_pos = particle.position + right * vertex_offset.x + actual_up * vertex_offset.y;
+    let world_posititon = particle.position + right * vertex_offset.x + up * vertex_offset.y;
 
-    out.clip_position = camera.view_proj * vec4<f32>(world_pos, 1.0);
-    out.world_position = world_pos;
+    out.clip_position = camera.view_proj * vec4<f32>(world_posititon, 1.0);
+    out.world_position = world_posititon;
     out.particle_center = particle.position;
     out.color = vec3<f32>(0.2, 0.6, 1.0);
 

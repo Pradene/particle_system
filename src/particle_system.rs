@@ -6,14 +6,15 @@ pub struct Particle {
     pub position: [f32; 3],
     pub velocity: [f32; 3],
     pub mass: f32,
-    pub padding: [f32; 1],
+    pub lifetime: f32,
 }
 
 impl Particle {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 3] = wgpu::vertex_attr_array![
+    const ATTRIBUTES: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
         0 => Float32x3,
         1 => Float32x3,
         2 => Float32,
+        3 => Float32,
     ];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {

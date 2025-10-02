@@ -1,7 +1,8 @@
 struct Particle {
     position: vec3<f32>,
     velocity: vec3<f32>,
-    mass: f32
+    mass: f32,
+    lifetime: f32
 }
 
 struct ComputeUniforms {
@@ -26,6 +27,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Read from input buffer
     let particle = particles_in[index];
+    if (particle.lifetime - dt <= 0.0) {
+        return;
+    }
 
     // Update particle
     var new_velocity = particle.velocity;
@@ -36,4 +40,5 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     particles_out[index].position = new_position;
     particles_out[index].velocity = new_velocity;
     particles_out[index].mass = new_mass;
+    particles_out[index].lifetime -= dt;
 }

@@ -2,6 +2,7 @@ struct Particle {
     position: vec3<f32>,
     velocity: vec3<f32>,
     mass: f32,
+    lifetime: f32,
 }
 
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
@@ -44,5 +45,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var seed = hash(index * 123456789u);
     particles[index].position = random_on_sphere(&seed);
     particles[index].velocity = vec3<f32>(0.0, 0.0, 0.0);
-    particles[index].mass = 0.1;
+    particles[index].mass = 1.0;
+    particles[index].lifetime = 4.0;
 }
