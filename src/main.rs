@@ -1,5 +1,6 @@
 mod app;
 mod camera;
+mod camera_controller;
 mod particle_system;
 mod renderer;
 mod timer;

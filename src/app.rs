@@ -1,9 +1,7 @@
 use {
     crate::{
-        camera::{Camera, CameraController},
-        particle_system::ParticleSystem,
-        renderer::Renderer,
-        timer::Timer,
+        camera::Camera, camera_controller::CameraController, particle_system::ParticleSystem,
+        renderer::Renderer, timer::Timer,
     },
     glam::vec3,
     std::sync::Arc,

@@ -456,6 +456,7 @@ impl ParticleSystem {
         render_pass.set_bind_group(0, &self.render_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.particles_buffers[1 - self.current_buffer].slice(..));
         render_pass.draw(0..6, 0..self.particles_count());
+        drop(render_pass);
     }
 
     pub fn particles_count(&self) -> u32 {
