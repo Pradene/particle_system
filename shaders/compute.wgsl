@@ -6,10 +6,12 @@ struct Particle {
 }
 
 struct ComputeUniforms {
-    delta_time: f32,
+    gravity_center: vec3<f32>,
     gravity_strength: f32,
     rotation_speed: f32,
     drag_strength: f32,
+    delta_time: f32,
+    padding: f32,
 }
 
 @group(0) @binding(0) var<storage, read> particles_in: array<Particle>;
@@ -27,13 +29,26 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Read from input buffer
     let particle = particles_in[index];
-    if (particle.lifetime - dt <= 0.0) {
-        return;
-    }
 
-    // Update particle
-    var new_velocity = particle.velocity;
-    var new_position = particle.position + particle.velocity * dt;
+    // Calculate direction and distance to gravity center
+    let to_center = uniforms.gravity_center - particle.position;
+    let distance = length(to_center);
+
+    // Prevent division by zero and extreme forces
+    let min_distance = 0.1;
+    let safe_distance = max(distance, min_distance);
+
+    // Calculate gravitational force (F = G * m / r^2)
+    let direction = normalize(to_center);
+    let force_magnitude = uniforms.gravity_strength / (safe_distance * safe_distance);
+    let acceleration = direction * force_magnitude;
+
+    // Apply drag/damping
+    let drag = particle.velocity * uniforms.drag_strength;
+
+    // Update velocity and position
+    var new_velocity = particle.velocity + (acceleration - drag) * dt;
+    var new_position = particle.position + new_velocity * dt;
     var new_mass = particle.mass;
 
     // Write to output buffer

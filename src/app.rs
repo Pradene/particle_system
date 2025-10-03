@@ -49,7 +49,8 @@ impl ApplicationHandler for App {
         );
 
         if let Some(surface_format) = renderer.surface_format() {
-            let mut particle_system = ParticleSystem::new(renderer.device(), surface_format, 65536);
+            let mut particle_system =
+                ParticleSystem::new(renderer.device(), surface_format, 2097152);
 
             particle_system.emit(renderer.device(), renderer.queue());
 

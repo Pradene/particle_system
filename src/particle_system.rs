@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::{camera::Camera, renderer::RenderFrame};
 
 #[repr(C)]
@@ -29,10 +31,12 @@ impl Particle {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ComputeUniforms {
-    pub delta_time: f32,
+    pub gravity_center: [f32; 3],
     pub gravity_strength: f32,
     pub rotation_speed: f32,
     pub drag_strength: f32,
+    pub delta_time: f32,
+    pub padding: f32,
 }
 
 #[repr(C)]
@@ -58,6 +62,8 @@ pub struct ParticleSystem {
     compute_bind_groups: [wgpu::BindGroup; 2],
     render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
+
+    start_time: Instant,
 }
 
 impl ParticleSystem {
@@ -344,6 +350,8 @@ impl ParticleSystem {
             cache: None,
         });
 
+        let start_time = Instant::now();
+
         Self {
             particles_buffers,
             particles_count,
@@ -356,6 +364,7 @@ impl ParticleSystem {
             compute_bind_groups,
             render_pipeline,
             render_bind_group,
+            start_time,
         }
     }
 
@@ -379,11 +388,20 @@ impl ParticleSystem {
     }
 
     pub fn update(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame, delta_time: f32) {
+        let elapsed = self.start_time.elapsed().as_secs_f32();
+        let gravity_center = [
+            f32::cos(elapsed) * 2.0,
+            f32::sin(elapsed) * 2.0,
+            f32::sin(elapsed * 0.5) * 1.5,
+        ];
+
         let uniforms = ComputeUniforms {
             delta_time,
+            gravity_center,
             gravity_strength: 10.0,
             rotation_speed: 1.0,
-            drag_strength: 1.5,
+            drag_strength: 0.5,
+            padding: 0.0,
         };
 
         queue.write_buffer(
