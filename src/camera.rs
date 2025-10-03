@@ -92,7 +92,7 @@ impl Camera {
 
     pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
         self.pitch = (self.pitch + delta_pitch).clamp(-MAX_PITCH, MAX_PITCH);
-        self.yaw = self.yaw + delta_yaw;
+        self.yaw += delta_yaw;
     }
 
     pub fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> Mat4 {

@@ -34,10 +34,9 @@ impl ApplicationHandler for App {
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
         window.set_cursor_visible(false);
-        self.window = Some(window.clone());
 
         let mut renderer = pollster::block_on(Renderer::new());
-        renderer.create_surface(window);
+        renderer.create_surface(window.clone());
 
         self.camera = Camera::new(
             vec3(0.0, 0.0, 10.0),
@@ -57,6 +56,7 @@ impl ApplicationHandler for App {
             self.particle_system = Some(particle_system);
         }
 
+        self.window = Some(window);
         self.renderer = Some(renderer);
         self.timer = Timer::new();
         self.camera_controller = CameraController::new();
