@@ -40,5 +40,5 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     particles_out[index].position = new_position;
     particles_out[index].velocity = new_velocity;
     particles_out[index].mass = new_mass;
-    particles_out[index].lifetime -= dt;
+    particles_out[index].lifetime = particle.lifetime - dt;
 }

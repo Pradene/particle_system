@@ -41,13 +41,14 @@ fn vs_main(
     let vertex_offset = VERTICES[vertex_index] * particle_size;
 
     let to_camera = normalize(camera.position - particle.position);
-    let right = cross(vec3<f32>(0.0, 1.0, 0.0), to_camera);
+    let world_up = vec3<f32>(0.0, 1.0, 0.0);
+    let right = normalize(cross(world_up, to_camera));
     let up = cross(to_camera, right);
 
-    let world_posititon = particle.position + right * vertex_offset.x + up * vertex_offset.y;
+    let world_position = particle.position + right * vertex_offset.x + up * vertex_offset.y;
 
-    out.clip_position = camera.view_proj * vec4<f32>(world_posititon, 1.0);
-    out.world_position = world_posititon;
+    out.clip_position = camera.view_proj * vec4<f32>(world_position, 1.0);
+    out.world_position = world_position;
     out.particle_center = particle.position;
     out.color = vec3<f32>(0.2, 0.6, 1.0);
 

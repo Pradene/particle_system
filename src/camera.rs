@@ -32,7 +32,7 @@ impl Camera {
         let fov_y = 2.0 * (fov_x / 2.0).tan().atan2(aspect);
 
         let direction = (target - eye).normalize();
-        let yaw = direction.x.atan2(direction.z);
+        let yaw = direction.z.atan2(direction.x);
         let pitch = direction.y.asin().clamp(-MAX_PITCH, MAX_PITCH);
 
         let projection = Self::perspective(fov_y, aspect, near, far);
@@ -66,9 +66,9 @@ impl Camera {
 
     pub fn direction(&self) -> Vec3 {
         Vec3::new(
-            self.yaw.sin() * self.pitch.cos(),
-            self.pitch.sin(),
             self.yaw.cos() * self.pitch.cos(),
+            self.pitch.sin(),
+            self.yaw.sin() * self.pitch.cos(),
         )
         .normalize()
     }
@@ -95,17 +95,14 @@ impl Camera {
         self.yaw = self.yaw + delta_yaw;
     }
 
-    pub fn perspective(fov_y_radians: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
-        let (sin_fov, cos_fov) = f32::sin_cos(0.5 * fov_y_radians);
-        let h = cos_fov / sin_fov;
-        let w = h / aspect_ratio;
-        let r = z_far / (z_near - z_far);
+    pub fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
+        let f = f32::cos(fov_y / 2.0);
 
         glam::Mat4::from_cols(
-            glam::Vec4::new(-w, 0.0, 0.0, 0.0),
-            glam::Vec4::new(0.0, -h, 0.0, 0.0),
-            glam::Vec4::new(0.0, 0.0, r, -1.0),
-            glam::Vec4::new(0.0, 0.0, r * z_near, 0.0),
+            glam::Vec4::new(f / aspect, 0.0, 0.0, 0.0),
+            glam::Vec4::new(0.0, f, 0.0, 0.0),
+            glam::Vec4::new(0.0, 0.0, (far + near) / (near - far), -1.0),
+            glam::Vec4::new(0.0, 0.0, (2.0 * far * near) / (near - far), 0.0),
         )
     }
 }
