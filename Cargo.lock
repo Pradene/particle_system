@@ -764,18 +764,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mod1"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "glam",
- "pollster",
- "rand",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "naga"
 version = "26.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1129,6 +1117,18 @@ dependencies = [
  "redox_syscall 0.5.17",
  "smallvec",
  "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "particle_system"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "glam",
+ "pollster",
+ "rand",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

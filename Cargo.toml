@@ -1,5 +1,5 @@
 [package]
-name = "mod1"
+name = "particle_system"
 version = "0.1.0"
 edition = "2024"
 
