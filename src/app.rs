@@ -32,7 +32,15 @@ impl ApplicationHandler for App {
             .with_inner_size(PhysicalSize::new(1080, 720))
             .with_resizable(true);
 
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let window = match event_loop.create_window(window_attributes) {
+            Ok(win) => Arc::new(win),
+            Err(e) => {
+                eprintln!("Failed to create window: {e:?}");
+                event_loop.exit();
+                return;
+            }
+        };
+
         window.set_cursor_visible(false);
 
         let mut renderer = pollster::block_on(Renderer::new());
@@ -71,13 +79,23 @@ impl ApplicationHandler for App {
             if let Some(window) = &self.window {
                 let size = window.inner_size();
                 let center = PhysicalPosition::new(size.width / 2, size.height / 2);
-                window.set_cursor_position(center).unwrap();
+                if let Err(e) = window.set_cursor_position(center) {
+                    eprintln!("Failed to set cursor position: {e:?}");
+                }
             }
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
-        let window = self.window.as_mut().unwrap();
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        let window = match self.window.as_mut() {
+            Some(window) => window,
+            None => return,
+        };
 
         if window_id != window.id() {
             return;
@@ -105,10 +123,11 @@ impl ApplicationHandler for App {
                     },
                 ..
             } => {
-                let monitor = window.current_monitor().unwrap();
-                match window.fullscreen() {
-                    Some(_) => window.set_fullscreen(None),
-                    None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                if let Some(monitor) = window.current_monitor() {
+                    match window.fullscreen() {
+                        Some(_) => window.set_fullscreen(None),
+                        None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                    }
                 }
             }
             WindowEvent::Resized(physical_size) => {
