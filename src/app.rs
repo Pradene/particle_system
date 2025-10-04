@@ -2,7 +2,7 @@ use {
     crate::{
         camera::Camera,
         camera_controller::CameraController,
-        particle_system::{ParticleSystem, ParticleSystemInfo, RenderMode},
+        particle_system::{ComputeUniforms, ParticleSystem, ParticleSystemInfo, RenderMode},
         renderer::Renderer,
         timer::Timer,
     },
@@ -198,7 +198,23 @@ impl ApplicationHandler for App {
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
-                                particle_system.update(renderer.queue(), &mut frame, delta_time);
+                                let elapsed = self.timer.elapsed().as_secs_f32();
+                                let gravity_center = [
+                                    f32::cos(elapsed) * 2.0,
+                                    f32::sin(elapsed) * 2.0,
+                                    f32::sin(elapsed * 0.5) * 1.5,
+                                ];
+
+                                let uniforms = ComputeUniforms {
+                                    delta_time,
+                                    gravity_center,
+                                    gravity_strength: 10.0,
+                                    rotation_speed: 1.0,
+                                    drag_strength: 0.5,
+                                    padding: 0.0,
+                                };
+
+                                particle_system.update(renderer.queue(), &mut frame, uniforms);
                                 particle_system.render(renderer.queue(), &mut frame, &self.camera);
                             }
 

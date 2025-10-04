@@ -458,23 +458,12 @@ impl ParticleSystem {
         queue.submit(Some(encoder.finish()));
     }
 
-    pub fn update(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame, delta_time: f32) {
-        let elapsed = self.start_time.elapsed().as_secs_f32();
-        let gravity_center = [
-            f32::cos(elapsed) * 2.0,
-            f32::sin(elapsed) * 2.0,
-            f32::sin(elapsed * 0.5) * 1.5,
-        ];
-
-        let uniforms = ComputeUniforms {
-            delta_time,
-            gravity_center,
-            gravity_strength: 10.0,
-            rotation_speed: 1.0,
-            drag_strength: 0.5,
-            padding: 0.0,
-        };
-
+    pub fn update(
+        &mut self,
+        queue: &wgpu::Queue,
+        frame: &mut RenderFrame,
+        uniforms: ComputeUniforms,
+    ) {
         queue.write_buffer(
             &self.compute_uniforms_buffer,
             0,
