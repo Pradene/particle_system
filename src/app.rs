@@ -11,7 +11,7 @@ use {
         event::{DeviceEvent, DeviceId, ElementState, KeyEvent, WindowEvent},
         event_loop::ActiveEventLoop,
         keyboard::{KeyCode, PhysicalKey},
-        window::{Window, WindowId},
+        window::{Fullscreen, Window, WindowId},
     },
 };
 
@@ -39,7 +39,7 @@ impl ApplicationHandler for App {
         renderer.create_surface(window.clone());
 
         self.camera = Camera::new(
-            vec3(0.0, 0.0, 10.0),
+            vec3(0.0, 0.0, 50.0),
             vec3(0.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0),
             1080.0 / 720.0,
@@ -76,7 +76,13 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+        let window = self.window.as_mut().unwrap();
+
+        if window_id != window.id() {
+            return;
+        }
+
         match event {
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
@@ -89,6 +95,21 @@ impl ApplicationHandler for App {
                 ..
             } => {
                 event_loop.exit();
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::F11),
+                        ..
+                    },
+                ..
+            } => {
+                let monitor = window.current_monitor().unwrap();
+                match window.fullscreen() {
+                    Some(_) => window.set_fullscreen(None),
+                    None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                }
             }
             WindowEvent::Resized(physical_size) => {
                 self.camera
@@ -111,10 +132,8 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let delta_time = self.timer.tick();
 
-                if let Some(window) = &self.window {
-                    let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
-                    window.set_title(title.as_str());
-                }
+                let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
+                window.set_title(title.as_str());
 
                 if let Some(renderer) = &mut self.renderer {
                     self.camera_controller.update(&mut self.camera, delta_time);
@@ -128,9 +147,7 @@ impl ApplicationHandler for App {
                             renderer.end_frame(frame);
                         }
                         Err(wgpu::SurfaceError::Lost) => {
-                            if let (Some(window), Some(renderer)) =
-                                (&self.window, &mut self.renderer)
-                            {
+                            if let Some(renderer) = &mut self.renderer {
                                 renderer.create_surface(window.clone());
                             }
                         }
@@ -143,9 +160,7 @@ impl ApplicationHandler for App {
                     }
                 }
 
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
+                window.request_redraw();
             }
             _ => (),
         }
