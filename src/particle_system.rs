@@ -1,5 +1,4 @@
 use crate::{camera::Camera, renderer::RenderFrame};
-use std::time::Instant;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -74,8 +73,6 @@ pub struct ParticleSystem {
     point_render_pipeline: wgpu::RenderPipeline,
     quad_render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
-
-    start_time: Instant,
 }
 
 impl ParticleSystem {
@@ -420,8 +417,6 @@ impl ParticleSystem {
             cache: None,
         });
 
-        let start_time = Instant::now();
-
         Self {
             particles_buffers,
             particles_count: info.particles_count,
@@ -436,7 +431,6 @@ impl ParticleSystem {
             point_render_pipeline,
             quad_render_pipeline,
             render_bind_group,
-            start_time,
         }
     }
 
