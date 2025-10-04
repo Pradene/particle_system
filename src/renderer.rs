@@ -11,8 +11,27 @@ pub struct Renderer {
     window: Option<Arc<Window>>,
 }
 
+#[derive(Debug)]
+pub enum RendererError {
+    AdapterNotFound,
+    DeviceRequestFailed,
+    SurfaceCreationFailed,
+}
+
+impl std::fmt::Display for RendererError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RendererError::AdapterNotFound => write!(f, "Failed to find a suitable GPU adapter"),
+            RendererError::DeviceRequestFailed => write!(f, "Failed to request device"),
+            RendererError::SurfaceCreationFailed => write!(f, "Failed to create surface"),
+        }
+    }
+}
+
+impl std::error::Error for RendererError {}
+
 impl Renderer {
-    pub async fn new() -> Self {
+    pub async fn new() -> Result<Self, RendererError> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
@@ -25,7 +44,7 @@ impl Renderer {
                 compatible_surface: None,
             })
             .await
-            .unwrap();
+            .map_err(|_| RendererError::AdapterNotFound)?;
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -36,9 +55,9 @@ impl Renderer {
                 memory_hints: wgpu::MemoryHints::default(),
             })
             .await
-            .unwrap();
+            .map_err(|_| RendererError::DeviceRequestFailed)?;
 
-        Self {
+        Ok(Self {
             instance,
             adapter,
             device,
@@ -47,11 +66,15 @@ impl Renderer {
             surface_config: None,
             depth_texture: None,
             window: None,
-        }
+        })
     }
 
-    pub fn create_surface(&mut self, window: Arc<Window>) {
-        let surface = self.instance.create_surface(window.clone()).unwrap();
+    pub fn create_surface(&mut self, window: Arc<Window>) -> Result<(), RendererError> {
+        let surface = self
+            .instance
+            .create_surface(window.clone())
+            .map_err(|_| RendererError::SurfaceCreationFailed)?;
+
         let surface_caps = surface.get_capabilities(&self.adapter);
 
         let present_mode = if surface_caps
@@ -68,7 +91,13 @@ impl Renderer {
             .iter()
             .copied()
             .find(|f| f.is_srgb())
-            .unwrap_or(surface_caps.formats[0]);
+            .unwrap_or_else(|| {
+                surface_caps
+                    .formats
+                    .first()
+                    .copied()
+                    .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb)
+            });
 
         let size = window.clone().inner_size();
         let config = wgpu::SurfaceConfiguration {
@@ -77,7 +106,11 @@ impl Renderer {
             width: size.width,
             height: size.height,
             present_mode,
-            alpha_mode: surface_caps.alpha_modes[0],
+            alpha_mode: surface_caps
+                .alpha_modes
+                .first()
+                .copied()
+                .unwrap_or(wgpu::CompositeAlphaMode::Auto),
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
@@ -88,6 +121,8 @@ impl Renderer {
         self.window = Some(window);
         self.surface = Some(surface);
         self.surface_config = Some(config);
+
+        Ok(())
     }
 
     fn create_depth_texture(&self, width: u32, height: u32) -> wgpu::TextureView {

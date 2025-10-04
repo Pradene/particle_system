@@ -11,7 +11,14 @@ use {
 };
 
 fn main() {
-    let event_loop = EventLoop::new().unwrap();
+    let event_loop = match EventLoop::new() {
+        Ok(event_loop) => event_loop,
+        Err(e) => {
+            eprintln!("Failed to create event loop: {}", e);
+            return;
+        }
+    };
+
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let mut app = App::default();

@@ -33,7 +33,10 @@ impl ApplicationHandler for App {
             .with_resizable(true);
 
         let window = match event_loop.create_window(window_attributes) {
-            Ok(win) => Arc::new(win),
+            Ok(window) => {
+                window.set_cursor_visible(false);
+                Arc::new(window)
+            }
             Err(e) => {
                 eprintln!("Failed to create window: {e:?}");
                 event_loop.exit();
@@ -41,10 +44,20 @@ impl ApplicationHandler for App {
             }
         };
 
-        window.set_cursor_visible(false);
+        let mut renderer = match pollster::block_on(Renderer::new()) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Failed to create renderer: {e}");
+                event_loop.exit();
+                return;
+            }
+        };
 
-        let mut renderer = pollster::block_on(Renderer::new());
-        renderer.create_surface(window.clone());
+        if let Err(e) = renderer.create_surface(window.clone()) {
+            eprintln!("Failed to create surface: {e}");
+            event_loop.exit();
+            return;
+        }
 
         self.camera = Camera::new(
             vec3(0.0, 0.0, 50.0),
@@ -167,7 +180,10 @@ impl ApplicationHandler for App {
                         }
                         Err(wgpu::SurfaceError::Lost) => {
                             if let Some(renderer) = &mut self.renderer {
-                                renderer.create_surface(window.clone());
+                                if let Err(e) = renderer.create_surface(window.clone()) {
+                                    eprintln!("Failed to recreate surface: {e}");
+                                    event_loop.exit();
+                                }
                             }
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {
