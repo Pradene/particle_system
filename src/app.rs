@@ -1,7 +1,10 @@
 use {
     crate::{
-        camera::Camera, camera_controller::CameraController, particle_system::ParticleSystem,
-        renderer::Renderer, timer::Timer,
+        camera::Camera,
+        camera_controller::CameraController,
+        particle_system::{ParticleSystem, ParticleSystemInfo, RenderMode},
+        renderer::Renderer,
+        timer::Timer,
     },
     glam::vec3,
     std::sync::Arc,
@@ -70,8 +73,14 @@ impl ApplicationHandler for App {
         );
 
         if let Some(surface_format) = renderer.surface_format() {
-            let mut particle_system =
-                ParticleSystem::new(renderer.device(), surface_format, 2097152);
+            let mut particle_system = ParticleSystem::new(
+                renderer.device(),
+                surface_format,
+                ParticleSystemInfo {
+                    render_mode: RenderMode::Points,
+                    particles_count: 2097152,
+                },
+            );
 
             particle_system.emit(renderer.device(), renderer.queue());
 
@@ -140,6 +149,23 @@ impl ApplicationHandler for App {
                     match window.fullscreen() {
                         Some(_) => window.set_fullscreen(None),
                         None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::KeyQ),
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(particle_system) = &mut self.particle_system {
+                    let render_mode = particle_system.get_render_mode();
+                    match render_mode {
+                        RenderMode::Points => particle_system.set_render_mode(RenderMode::Quads),
+                        RenderMode::Quads => particle_system.set_render_mode(RenderMode::Points),
                     }
                 }
             }
