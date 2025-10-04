@@ -77,14 +77,7 @@ impl Renderer {
 
         let surface_caps = surface.get_capabilities(&self.adapter);
 
-        let present_mode = if surface_caps
-            .present_modes
-            .contains(&wgpu::PresentMode::Mailbox)
-        {
-            wgpu::PresentMode::Mailbox
-        } else {
-            wgpu::PresentMode::Fifo
-        };
+        let present_mode = wgpu::PresentMode::Fifo;
 
         let surface_format = surface_caps
             .formats

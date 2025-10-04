@@ -53,7 +53,7 @@ impl CameraController {
 
     pub fn update(&mut self, camera: &mut Camera, delta_time: f32) {
         let (dx, dy) = self.mouse_delta;
-        camera.rotate(dx * self.sensitivity, dy * self.sensitivity);
+        camera.rotate(dx * self.sensitivity, -dy * self.sensitivity);
 
         let forward = camera.direction();
         let up = glam::vec3(0.0, 1.0, 0.0);
