@@ -1,5 +1,4 @@
 use std::time::Instant;
-
 use crate::{camera::Camera, renderer::RenderFrame};
 
 #[repr(C)]
@@ -47,6 +46,12 @@ pub struct RenderUniforms {
     pub padding: [f32; 1],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RenderMode {
+    Points,
+    Quads,
+}
+
 pub struct ParticleSystem {
     // Buffers
     particles_buffers: [wgpu::Buffer; 2],
@@ -60,9 +65,11 @@ pub struct ParticleSystem {
     init_bind_groups: [wgpu::BindGroup; 2],
     compute_pipeline: wgpu::ComputePipeline,
     compute_bind_groups: [wgpu::BindGroup; 2],
-    render_pipeline: wgpu::RenderPipeline,
+    point_render_pipeline: wgpu::RenderPipeline,
+    quad_render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
 
+    render_mode: RenderMode,
     start_time: Instant,
 }
 
@@ -72,6 +79,7 @@ impl ParticleSystem {
         surface_format: wgpu::TextureFormat,
         particles_count: u32,
     ) -> Self {
+        let render_mode = RenderMode::Points;
         let buffer_size = (particles_count as usize * std::mem::size_of::<Particle>()) as u64;
 
         // Create particle buffers
@@ -101,7 +109,6 @@ impl ParticleSystem {
             mapped_at_creation: false,
         });
 
-        // Create render uniforms buffer
         let render_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Render Uniform Buffer"),
             size: std::mem::size_of::<RenderUniforms>() as u64,
@@ -262,10 +269,15 @@ impl ParticleSystem {
             cache: None,
         });
 
-        // === RENDER PIPELINE ===
-        let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Render Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render.wgsl").into()),
+        // === RENDER PIPELINES ===
+        let quad_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Quad Render Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render_quad.wgsl").into()),
+        });
+
+        let point_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Point Render Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render_point.wgsl").into()),
         });
 
         let render_bind_group_layout =
@@ -299,17 +311,70 @@ impl ParticleSystem {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+        // Point rendering pipeline
+        let point_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Point Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &render_shader,
+                module: &point_shader,
                 entry_point: Some("vs_main"),
                 buffers: &[Particle::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &render_shader,
+                module: &point_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: surface_format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent::OVER,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::PointList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+            cache: None,
+        });
+
+        // Quad rendering pipeline
+        let quad_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Quad Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &quad_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Particle::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &quad_shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_format,
@@ -329,14 +394,14 @@ impl ParticleSystem {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
+                depth_write_enabled: false,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
@@ -362,8 +427,10 @@ impl ParticleSystem {
             init_bind_groups,
             compute_pipeline,
             compute_bind_groups,
-            render_pipeline,
+            point_render_pipeline,
+            quad_render_pipeline,
             render_bind_group,
+            render_mode,
             start_time,
         }
     }
@@ -373,7 +440,6 @@ impl ParticleSystem {
             label: Some("Init Encoder"),
         });
 
-        // Initialize both buffers
         for i in 0..2 {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("Init Compute Pass"),
@@ -471,10 +537,20 @@ impl ParticleSystem {
                 occlusion_query_set: None,
             });
 
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(0, &self.render_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.particles_buffers[1 - self.current_buffer].slice(..));
-        render_pass.draw(0..6, 0..self.particles_count());
+        match self.render_mode {
+            RenderMode::Points => {
+                render_pass.set_pipeline(&self.point_render_pipeline);
+                render_pass.set_bind_group(0, &self.render_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.particles_buffers[1 - self.current_buffer].slice(..));
+                render_pass.draw(0..1, 0..self.particles_count());
+            }
+            RenderMode::Quads => {
+                render_pass.set_pipeline(&self.quad_render_pipeline);
+                render_pass.set_bind_group(0, &self.render_bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.particles_buffers[1 - self.current_buffer].slice(..));
+                render_pass.draw(0..6, 0..self.particles_count());
+            }
+        }
         drop(render_pass);
     }
 

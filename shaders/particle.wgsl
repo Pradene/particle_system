@@ -58,7 +58,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Calculate orbital velocity using v = sqrt(GM/r)
     // For game/demo purposes, we use a simplified constant
-    let gravitational_constant = 10.0; // Adjust for desired speed
+    let gravitational_constant = 10.0;
     let orbital_speed = sqrt(gravitational_constant / radius);
 
     // Velocity is perpendicular to position vector (tangent to orbit)

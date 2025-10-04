@@ -52,7 +52,7 @@ impl Renderer {
                 trace: wgpu::Trace::Off,
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
+                memory_hints: wgpu::MemoryHints::Performance,
             })
             .await
             .map_err(|_| RendererError::DeviceRequestFailed)?;
