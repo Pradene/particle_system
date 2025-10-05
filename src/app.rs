@@ -65,7 +65,6 @@ impl ApplicationHandler for App {
         self.camera = Camera::new(
             vec3(0.0, 0.0, 20.0),
             vec3(0.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0),
             1080.0 / 720.0,
             80.0,
             0.1,
