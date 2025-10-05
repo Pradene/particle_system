@@ -197,20 +197,11 @@ impl ApplicationHandler for App {
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
-                                let elapsed = self.timer.elapsed().as_secs_f32();
-                                let gravity_center = [
-                                    f32::cos(elapsed) * 2.0,
-                                    f32::sin(elapsed) * 2.0,
-                                    f32::sin(elapsed * 0.5) * 1.5,
-                                    1.0,
-                                ];
-
                                 let uniforms = ComputeUniforms {
-                                    delta_time,
-                                    gravity_center,
+                                    gravity_center: [0.0, 0.0, 0.0, 1.0],
                                     gravity_strength: 10.0,
-                                    rotation_speed: 1.0,
-                                    drag_strength: 0.5,
+                                    delta_time,
+                                    padding: [0.0; 2],
                                 };
 
                                 particle_system.update(renderer.queue(), &mut frame, uniforms);
@@ -220,11 +211,11 @@ impl ApplicationHandler for App {
                             renderer.end_frame(frame);
                         }
                         Err(wgpu::SurfaceError::Lost) => {
-                            if let Some(renderer) = &mut self.renderer {
-                                if let Err(e) = renderer.create_surface(window.clone()) {
-                                    eprintln!("Failed to recreate surface: {e}");
-                                    event_loop.exit();
-                                }
+                            if let Some(renderer) = &mut self.renderer
+                                && let Err(e) = renderer.create_surface(window.clone())
+                            {
+                                eprintln!("Failed to recreate surface: {e}");
+                                event_loop.exit();
                             }
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {

@@ -49,7 +49,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Generate random orbital radius (distance from center/planet)
     let min_radius = 4.0;
-    let max_radius = 16.0;
+    let max_radius = 8.0;
     let radius = random_range(&seed, min_radius, max_radius);
 
     // Position on sphere at given radius

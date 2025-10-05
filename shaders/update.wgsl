@@ -8,8 +8,6 @@ struct Particle {
 struct ComputeUniforms {
     gravity_center: vec4<f32>,
     gravity_strength: f32,
-    rotation_speed: f32,
-    drag_strength: f32,
     delta_time: f32,
 }
 
@@ -42,11 +40,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let force_magnitude = uniforms.gravity_strength / (safe_distance * safe_distance);
     let acceleration = direction * force_magnitude;
 
-    // Apply drag/damping
-    let drag = particle.velocity * uniforms.drag_strength;
-
     // Update velocity and position
-    var new_velocity = particle.velocity + (acceleration - drag) * dt;
+    var new_velocity = particle.velocity + acceleration * dt;
     var new_position = particle.position + new_velocity * dt;
     var new_mass = particle.mass;
 

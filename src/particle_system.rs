@@ -32,9 +32,8 @@ impl Particle {
 pub struct ComputeUniforms {
     pub gravity_center: [f32; 4],
     pub gravity_strength: f32,
-    pub rotation_speed: f32,
-    pub drag_strength: f32,
     pub delta_time: f32,
+    pub padding: [f32; 2],
 }
 
 #[repr(C)]

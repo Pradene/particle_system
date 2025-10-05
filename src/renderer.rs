@@ -204,7 +204,7 @@ impl<'a> RenderFrame<'a> {
     }
 
     pub fn depth_view(&self) -> &wgpu::TextureView {
-        &self.depth_view
+        self.depth_view
     }
 
     pub fn encoder_mut(&mut self) -> &mut wgpu::CommandEncoder {

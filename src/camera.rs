@@ -64,9 +64,9 @@ impl Camera {
         let yaw_quat = Quat::from_rotation_y(delta_yaw);
         let pitch_quat = Quat::from_axis_angle(Vec3::X, delta_pitch);
 
-        self.orientation = yaw_quat * self.orientation;
-        self.orientation = self.orientation * pitch_quat;
-        self.orientation = self.orientation.normalize();
+        self.orientation = (yaw_quat * self.orientation * pitch_quat)
+            .normalize()
+            .normalize();
     }
 
     pub fn view(&self) -> Mat4 {
