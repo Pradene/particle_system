@@ -77,7 +77,7 @@ impl ApplicationHandler for App {
                 surface_format,
                 ParticleSystemInfo {
                     shape: ParticleShape::Points,
-                    particles_count: 2097152,
+                    particles_count: 65536,
                 },
             );
 
@@ -202,6 +202,7 @@ impl ApplicationHandler for App {
                                     f32::cos(elapsed) * 2.0,
                                     f32::sin(elapsed) * 2.0,
                                     f32::sin(elapsed * 0.5) * 1.5,
+                                    1.0,
                                 ];
 
                                 let uniforms = ComputeUniforms {
@@ -210,7 +211,6 @@ impl ApplicationHandler for App {
                                     gravity_strength: 10.0,
                                     rotation_speed: 1.0,
                                     drag_strength: 0.5,
-                                    padding: 0.0,
                                 };
 
                                 particle_system.update(renderer.queue(), &mut frame, uniforms);

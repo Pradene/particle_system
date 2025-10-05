@@ -1,17 +1,16 @@
 struct Particle {
-    position: vec3<f32>,
-    velocity: vec3<f32>,
+    position: vec4<f32>,
+    velocity: vec4<f32>,
     mass: f32,
     lifetime: f32
 }
 
 struct ComputeUniforms {
-    gravity_center: vec3<f32>,
+    gravity_center: vec4<f32>,
     gravity_strength: f32,
     rotation_speed: f32,
     drag_strength: f32,
     delta_time: f32,
-    padding: f32,
 }
 
 @group(0) @binding(0) var<storage, read> particles_in: array<Particle>;

@@ -3,16 +3,17 @@ use crate::{camera::Camera, renderer::RenderFrame};
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
-    pub position: [f32; 3],
-    pub velocity: [f32; 3],
+    pub position: [f32; 4],
+    pub velocity: [f32; 4],
     pub mass: f32,
     pub lifetime: f32,
+    pub padding: [f32; 2],
 }
 
 impl Particle {
     const ATTRIBUTES: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
-        0 => Float32x3,
-        1 => Float32x3,
+        0 => Float32x4,
+        1 => Float32x4,
         2 => Float32,
         3 => Float32,
     ];
@@ -29,20 +30,18 @@ impl Particle {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ComputeUniforms {
-    pub gravity_center: [f32; 3],
+    pub gravity_center: [f32; 4],
     pub gravity_strength: f32,
     pub rotation_speed: f32,
     pub drag_strength: f32,
     pub delta_time: f32,
-    pub padding: f32,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RenderUniforms {
     pub view_proj: [[f32; 4]; 4],
-    pub position: [f32; 3],
-    pub padding: [f32; 1],
+    pub position: [f32; 4],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -482,10 +481,13 @@ impl ParticleSystem {
     }
 
     pub fn render(&self, queue: &wgpu::Queue, frame: &mut RenderFrame, camera: &Camera) {
+        let camera_position = camera.position();
+        let position =
+            glam::Vec4::new(camera_position.x, camera_position.y, camera_position.z, 1.0);
+
         let uniforms = RenderUniforms {
             view_proj: camera.view_proj().to_cols_array_2d(),
-            position: camera.position().to_array(),
-            padding: [0.0; 1],
+            position: position.to_array(),
         };
 
         queue.write_buffer(

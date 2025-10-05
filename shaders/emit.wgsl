@@ -1,6 +1,6 @@
 struct Particle {
-    position: vec3<f32>,
-    velocity: vec3<f32>,
+    position: vec4<f32>,
+    velocity: vec4<f32>,
     mass: f32,
     lifetime: f32,
 }
@@ -77,8 +77,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let velocity = tangent * orbital_speed;
 
-    particles[index].position = position;
-    particles[index].velocity = velocity;
+    particles[index].position = vec4(position, 1.0);
+    particles[index].velocity = vec4(velocity, 0.0);
     particles[index].mass = 1.0;
     particles[index].lifetime = 4.0;
 }
