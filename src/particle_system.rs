@@ -271,14 +271,9 @@ impl ParticleSystem {
         });
 
         // === RENDER PIPELINES ===
-        let quad_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let render_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Quad Render Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render_quad.wgsl").into()),
-        });
-
-        let point_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Point Render Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render_point.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/render.wgsl").into()),
         });
 
         let render_bind_group_layout =
@@ -318,14 +313,14 @@ impl ParticleSystem {
                 label: Some("Point Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &point_shader,
-                    entry_point: Some("vs_main"),
+                    module: &render_shader,
+                    entry_point: Some("vs_point"),
                     buffers: &[Particle::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &point_shader,
-                    entry_point: Some("fs_main"),
+                    module: &render_shader,
+                    entry_point: Some("fs_point"),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: surface_format,
                         blend: Some(wgpu::BlendState {
@@ -370,14 +365,14 @@ impl ParticleSystem {
             label: Some("Quad Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &quad_shader,
-                entry_point: Some("vs_main"),
+                module: &render_shader,
+                entry_point: Some("vs_quad"),
                 buffers: &[Particle::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &quad_shader,
-                entry_point: Some("fs_main"),
+                module: &render_shader,
+                entry_point: Some("fs_quad"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: surface_format,
                     blend: Some(wgpu::BlendState {
