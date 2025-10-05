@@ -149,7 +149,7 @@ impl Renderer {
         }
     }
 
-    pub fn begin_frame(&self) -> Result<RenderFrame, wgpu::SurfaceError> {
+    pub fn begin_frame(&self) -> Result<RenderFrame<'_>, wgpu::SurfaceError> {
         if let (Some(surface), Some(depth_view)) = (&self.surface, &self.depth_texture) {
             let output = surface.get_current_texture()?;
             let view = output
@@ -165,7 +165,7 @@ impl Renderer {
             Ok(RenderFrame {
                 output,
                 view,
-                depth_view: depth_view.clone(),
+                depth_view,
                 encoder,
             })
         } else {
@@ -191,14 +191,14 @@ impl Renderer {
     }
 }
 
-pub struct RenderFrame {
+pub struct RenderFrame<'a> {
     output: wgpu::SurfaceTexture,
     view: wgpu::TextureView,
-    depth_view: wgpu::TextureView,
+    depth_view: &'a wgpu::TextureView,
     encoder: wgpu::CommandEncoder,
 }
 
-impl RenderFrame {
+impl<'a> RenderFrame<'a> {
     pub fn view(&self) -> &wgpu::TextureView {
         &self.view
     }
