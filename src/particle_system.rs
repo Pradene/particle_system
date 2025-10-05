@@ -46,13 +46,13 @@ pub struct RenderUniforms {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum RenderMode {
+pub enum ParticleShape {
     Points,
     Quads,
 }
 
 pub struct ParticleSystemInfo {
-    pub render_mode: RenderMode,
+    pub shape: ParticleShape,
     pub particles_count: u32,
 }
 
@@ -69,10 +69,11 @@ pub struct ParticleSystem {
     emit_bind_groups: [wgpu::BindGroup; 2],
     update_pipeline: wgpu::ComputePipeline,
     update_bind_groups: [wgpu::BindGroup; 2],
-    render_mode: RenderMode,
     point_render_pipeline: wgpu::RenderPipeline,
     quad_render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
+
+    shape: ParticleShape,
 }
 
 impl ParticleSystem {
@@ -427,7 +428,7 @@ impl ParticleSystem {
             emit_bind_groups,
             update_pipeline,
             update_bind_groups,
-            render_mode: info.render_mode,
+            shape: info.shape,
             point_render_pipeline,
             quad_render_pipeline,
             render_bind_group,
@@ -525,8 +526,8 @@ impl ParticleSystem {
                 occlusion_query_set: None,
             });
 
-        match self.render_mode {
-            RenderMode::Points => {
+        match self.shape {
+            ParticleShape::Points => {
                 render_pass.set_pipeline(&self.point_render_pipeline);
                 render_pass.set_bind_group(0, &self.render_bind_group, &[]);
                 render_pass.set_vertex_buffer(
@@ -535,7 +536,7 @@ impl ParticleSystem {
                 );
                 render_pass.draw(0..1, 0..self.particles_count());
             }
-            RenderMode::Quads => {
+            ParticleShape::Quads => {
                 render_pass.set_pipeline(&self.quad_render_pipeline);
                 render_pass.set_bind_group(0, &self.render_bind_group, &[]);
                 render_pass.set_vertex_buffer(
@@ -552,11 +553,11 @@ impl ParticleSystem {
         self.particles_count
     }
 
-    pub fn get_render_mode(&self) -> RenderMode {
-        self.render_mode
+    pub fn get_shape(&self) -> ParticleShape {
+        self.shape
     }
 
-    pub fn set_render_mode(&mut self, render_mode: RenderMode) {
-        self.render_mode = render_mode;
+    pub fn set_shape(&mut self, shape: ParticleShape) {
+        self.shape = shape;
     }
 }

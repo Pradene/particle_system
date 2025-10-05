@@ -2,7 +2,7 @@ use {
     crate::{
         camera::Camera,
         camera_controller::CameraController,
-        particle_system::{ComputeUniforms, ParticleSystem, ParticleSystemInfo, RenderMode},
+        particle_system::{ComputeUniforms, ParticleShape, ParticleSystem, ParticleSystemInfo},
         renderer::Renderer,
         timer::Timer,
     },
@@ -77,7 +77,7 @@ impl ApplicationHandler for App {
                 renderer.device(),
                 surface_format,
                 ParticleSystemInfo {
-                    render_mode: RenderMode::Points,
+                    shape: ParticleShape::Points,
                     particles_count: 2097152,
                 },
             );
@@ -162,10 +162,10 @@ impl ApplicationHandler for App {
                 ..
             } => {
                 if let Some(particle_system) = &mut self.particle_system {
-                    let render_mode = particle_system.get_render_mode();
-                    match render_mode {
-                        RenderMode::Points => particle_system.set_render_mode(RenderMode::Quads),
-                        RenderMode::Quads => particle_system.set_render_mode(RenderMode::Points),
+                    let shape = particle_system.get_shape();
+                    match shape {
+                        ParticleShape::Points => particle_system.set_shape(ParticleShape::Quads),
+                        ParticleShape::Quads => particle_system.set_shape(ParticleShape::Points),
                     }
                 }
             }
