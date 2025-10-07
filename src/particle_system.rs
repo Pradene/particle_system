@@ -5,17 +5,19 @@ use crate::{camera::Camera, renderer::RenderFrame};
 pub struct Particle {
     pub position: [f32; 4],
     pub velocity: [f32; 4],
+    pub color: [f32; 4],
     pub mass: f32,
     pub lifetime: f32,
     pub padding: [f32; 2],
 }
 
 impl Particle {
-    const ATTRIBUTES: [wgpu::VertexAttribute; 4] = wgpu::vertex_attr_array![
+    const ATTRIBUTES: [wgpu::VertexAttribute; 5] = wgpu::vertex_attr_array![
         0 => Float32x4,
         1 => Float32x4,
-        2 => Float32,
+        2 => Float32x4,
         3 => Float32,
+        4 => Float32,
     ];
 
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -67,11 +69,11 @@ pub struct ParticleSystem {
     emit_bind_groups: [wgpu::BindGroup; 2],
     update_pipeline: wgpu::ComputePipeline,
     update_bind_groups: [wgpu::BindGroup; 2],
-    point_render_pipeline: wgpu::RenderPipeline,
-    quad_render_pipeline: wgpu::RenderPipeline,
+    render_point_pipeline: wgpu::RenderPipeline,
+    render_quad_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
 
-    shape: ParticleShape,
+    particles_shape: ParticleShape,
 }
 
 impl ParticleSystem {
@@ -307,7 +309,7 @@ impl ParticleSystem {
             });
 
         // Point rendering pipeline
-        let point_render_pipeline =
+        let render_point_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Point Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
@@ -360,7 +362,7 @@ impl ParticleSystem {
             });
 
         // Quad rendering pipeline
-        let quad_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let render_quad_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Quad Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
@@ -421,9 +423,9 @@ impl ParticleSystem {
             emit_bind_groups,
             update_pipeline,
             update_bind_groups,
-            shape: info.shape,
-            point_render_pipeline,
-            quad_render_pipeline,
+            particles_shape: info.shape,
+            render_point_pipeline,
+            render_quad_pipeline,
             render_bind_group,
         }
     }
@@ -522,9 +524,9 @@ impl ParticleSystem {
                 occlusion_query_set: None,
             });
 
-        match self.shape {
+        match self.particles_shape {
             ParticleShape::Points => {
-                render_pass.set_pipeline(&self.point_render_pipeline);
+                render_pass.set_pipeline(&self.render_point_pipeline);
                 render_pass.set_bind_group(0, &self.render_bind_group, &[]);
                 render_pass.set_vertex_buffer(
                     0,
@@ -533,7 +535,7 @@ impl ParticleSystem {
                 render_pass.draw(0..1, 0..self.particles_count());
             }
             ParticleShape::Quads => {
-                render_pass.set_pipeline(&self.quad_render_pipeline);
+                render_pass.set_pipeline(&self.render_quad_pipeline);
                 render_pass.set_bind_group(0, &self.render_bind_group, &[]);
                 render_pass.set_vertex_buffer(
                     0,
@@ -550,10 +552,10 @@ impl ParticleSystem {
     }
 
     pub fn get_shape(&self) -> ParticleShape {
-        self.shape
+        self.particles_shape
     }
 
     pub fn set_shape(&mut self, shape: ParticleShape) {
-        self.shape = shape;
+        self.particles_shape = shape;
     }
 }

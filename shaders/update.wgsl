@@ -1,6 +1,7 @@
 struct Particle {
     position: vec4<f32>,
     velocity: vec4<f32>,
+    color: vec4<f32>,
     mass: f32,
     lifetime: f32
 }
@@ -45,9 +46,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var new_position = particle.position + new_velocity * dt;
     var new_mass = particle.mass;
 
+    var new_color = vec4(particle.color.rgb, 1.0 - distance * 0.05);
+
     // Write to output buffer
     particles_out[index].position = new_position;
     particles_out[index].velocity = new_velocity;
+    particles_out[index].color = new_color;
     particles_out[index].mass = new_mass;
     particles_out[index].lifetime = particle.lifetime - dt;
 }

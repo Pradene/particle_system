@@ -1,8 +1,9 @@
 struct Particle {
     @location(0) position: vec4<f32>,
     @location(1) velocity: vec4<f32>,
-    @location(2) mass: f32,
-    @location(3) lifetime: f32,
+    @location(2) color: vec4<f32>,
+    @location(3) mass: f32,
+    @location(4) lifetime: f32,
 }
 
 struct Uniforms {
@@ -34,7 +35,7 @@ var<private> VERTICES: array<vec2<f32>, 6> = array<vec2<f32>, 6>(
 fn vs_point(particle: Particle) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = uniforms.view_proj * particle.position;
-    out.color = vec4<f32>(0.2, 0.6, 1.0, 1.0);
+    out.color = particle.color;
     out.uv = vec2<f32>(0.0, 0.0);
     return out;
 }
@@ -48,7 +49,7 @@ fn vs_quad(
     var out: VertexOutput;
     
     let quad_pos = VERTICES[vertex_index];
-    let size = 0.05;
+    let size = 0.01;
     
     let view_right = vec4<f32>(uniforms.view_proj[0][0], uniforms.view_proj[1][0], uniforms.view_proj[2][0], 0.0);
     let view_up = vec4<f32>(uniforms.view_proj[0][1], uniforms.view_proj[1][1], uniforms.view_proj[2][1], 0.0);
@@ -56,7 +57,7 @@ fn vs_quad(
     let world_pos = particle.position + view_right * quad_pos.x * size + view_up * quad_pos.y * size;
     
     out.clip_position = uniforms.view_proj * world_pos;
-    out.color = vec4<f32>(0.2, 0.6, 1.0, 1.0);
+    out.color = particle.color;
     out.uv = quad_pos;
     
     return out;

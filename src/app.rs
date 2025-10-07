@@ -77,7 +77,7 @@ impl ApplicationHandler for App {
                 surface_format,
                 ParticleSystemInfo {
                     shape: ParticleShape::Points,
-                    particles_count: 65536,
+                    particles_count: 2097152,
                 },
             );
 
