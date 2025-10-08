@@ -6,7 +6,7 @@ struct Particle {
     lifetime: f32
 }
 
-struct ComputeUniforms {
+struct UpdateUniforms {
     gravity_center: vec4<f32>,
     gravity_strength: f32,
     delta_time: f32,
@@ -14,7 +14,7 @@ struct ComputeUniforms {
 
 @group(0) @binding(0) var<storage, read> particles_in: array<Particle>;
 @group(0) @binding(1) var<storage, read_write> particles_out: array<Particle>;
-@group(0) @binding(2) var<uniform> uniforms: ComputeUniforms;
+@group(0) @binding(2) var<uniform> uniforms: UpdateUniforms;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {

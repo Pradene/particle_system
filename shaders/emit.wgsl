@@ -6,14 +6,23 @@ struct Particle {
     lifetime: f32,
 }
 
+struct EmitUniforms {
+    frame: u32,
+    count: u32,
+}
+
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
+@group(0) @binding(1) var<uniform> uniforms: EmitUniforms;
+@group(0) @binding(2) var<storage, read_write> particle_count: atomic<u32>;
 
 fn hash(x: u32) -> u32 {
-    var state = x;
-    state = state * 747796405u + 2891336453u;
-    state = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    state = (state >> 22u) ^ state;
-    return state;
+    var s = x;
+    s = (s ^ 61u) ^ (s >> 16u);
+    s = s + (s << 3u);
+    s = s ^ (s >> 4u);
+    s = s * 0x27d4eb2du;
+    s = s ^ (s >> 15u);
+    return s;
 }
 
 fn random_float(state: ptr<function, u32>) -> f32 {
@@ -40,48 +49,49 @@ fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
 }
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn main(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(workgroup_id) workgroup_id: vec3<u32>,
+    @builtin(local_invocation_id) local_id: vec3<u32>
+) {
     let index = global_id.x;
-    if (index >= arrayLength(&particles)) {
+    
+    if (index >= uniforms.count) {
         return;
     }
 
-    var seed = hash(index * 123456789u);
+    let write_index = atomicAdd(&particle_count, 1u);
+    if (write_index >= arrayLength(&particles)) {
+        return;
+    }
 
-    // Generate random orbital radius (distance from center/planet)
-    let min_radius = 4.0;
-    let max_radius = 8.0;
+    var seed = hash(hash(write_index) ^ (uniforms.frame * 7919u));
+
+    let min_radius = 8.0;
+    let max_radius = 16.0;
     let radius = random_range(&seed, min_radius, max_radius);
 
-    // Position on sphere at given radius
     let direction = random_on_sphere(&seed);
     let position = direction * radius;
 
-    // Calculate orbital velocity using v = sqrt(GM/r)
-    // For game/demo purposes, we use a simplified constant
     let gravitational_constant = 10.0;
     let orbital_speed = sqrt(gravitational_constant / radius);
 
-    // Velocity is perpendicular to position vector (tangent to orbit)
-    // Cross product with a random up vector creates circular motion
     let up = vec3<f32>(0.0, 1.0, 0.0);
     var tangent = normalize(cross(direction, up));
 
-    // If direction is parallel to up, use different axis
     if (length(tangent) < 0.1) {
         tangent = normalize(cross(direction, vec3<f32>(1.0, 0.0, 0.0)));
     }
 
-    // Add some randomness to orbit inclination
-    let inclination = random_range(&seed, -0.3, 0.3);
+    let inclination = random_range(&seed, -0.8, 0.8);
     tangent = normalize(tangent + direction * inclination);
 
     let velocity = tangent * orbital_speed;
-    // let velocity = vec3(0.0, 0.0, 0.0);
 
-    particles[index].position = vec4(position, 1.0);
-    particles[index].velocity = vec4(velocity, 0.0);
-    particles[index].color = vec4(1.0, 0.55, 0.0, 0.4);
-    particles[index].mass = 1.0;
-    particles[index].lifetime = 4.0;
+    particles[write_index].position = vec4(position, 1.0);
+    particles[write_index].velocity = vec4(velocity, 0.0);
+    particles[write_index].color = vec4(1.0, 0.55, 0.0, 0.1);
+    particles[write_index].mass = 1.0;
+    particles[write_index].lifetime = 10.0;
 }
