@@ -1,6 +1,6 @@
 use crate::{camera::Camera, renderer::RenderFrame};
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Particle {
     pub position: [f32; 4],
@@ -29,16 +29,25 @@ impl Particle {
     }
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ComputeUniforms {
+pub struct EmitUniforms {
+    pub frame: u32,
+    pub count: u32,
+    pub lifetime: f32,
+    pub padding: [f32; 1],
+}
+
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct UpdateUniforms {
     pub gravity_center: [f32; 4],
     pub gravity_strength: f32,
     pub delta_time: f32,
     pub padding: [f32; 2],
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RenderUniforms {
     pub view_proj: [[f32; 4]; 4],
@@ -53,15 +62,8 @@ pub enum ParticleShape {
 
 pub struct ParticleSystemInfo {
     pub shape: ParticleShape,
-    pub particles_count: u32,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct EmitUniforms {
-    pub frame: u32,
-    pub count: u32,
-    pub padding: [f32; 2],
+    pub rate: u32,
+    pub lifetime: f32,
 }
 
 pub struct ParticleSystem {
@@ -71,14 +73,14 @@ pub struct ParticleSystem {
     current_buffer: usize,
 
     // Uniforms
-    compute_uniforms_buffer: wgpu::Buffer,
+    update_uniforms_buffer: wgpu::Buffer,
     render_uniforms_buffer: wgpu::Buffer,
     emit_uniforms_buffer: wgpu::Buffer,
     compact_buffer: wgpu::Buffer,
 
     // Pipelines
     emit_pipeline: wgpu::ComputePipeline,
-    emit_bind_groups: [wgpu::BindGroup; 2], // Can write to either buffer
+    emit_bind_groups: [wgpu::BindGroup; 2],
     compact_pipeline: wgpu::ComputePipeline,
     compact_bind_groups: [wgpu::BindGroup; 2],
     update_pipeline: wgpu::ComputePipeline,
@@ -89,6 +91,7 @@ pub struct ParticleSystem {
 
     particles_shape: ParticleShape,
     emit_rate: f32,
+    lifetime: f32,
     frame: u32,
     accumulated_emit: f32,
 }
@@ -99,7 +102,7 @@ impl ParticleSystem {
         surface_format: wgpu::TextureFormat,
         info: ParticleSystemInfo,
     ) -> Self {
-        let max_particles = info.particles_count;
+        let max_particles = info.rate * info.lifetime.ceil() as u32;
         let buffer_size = (max_particles as usize * std::mem::size_of::<Particle>()) as u64;
 
         let particles_buffers = [
@@ -124,13 +127,15 @@ impl ParticleSystem {
         let compact_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Counter Buffer"),
             size: 4,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
-        let compute_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let update_uniforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Compute Uniform Buffer"),
-            size: std::mem::size_of::<ComputeUniforms>() as u64,
+            size: std::mem::size_of::<UpdateUniforms>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -346,12 +351,12 @@ impl ParticleSystem {
         });
 
         // === UPDATE PIPELINE ===
-        let compute_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let update_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Compute Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/update.wgsl").into()),
         });
 
-        let compute_bind_group_layout =
+        let update_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Compute Bind Group Layout"),
                 entries: &[
@@ -391,7 +396,7 @@ impl ParticleSystem {
         let update_bind_groups = [
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Update Bind Group 0"),
-                layout: &compute_bind_group_layout,
+                layout: &update_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -403,13 +408,13 @@ impl ParticleSystem {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: compute_uniforms_buffer.as_entire_binding(),
+                        resource: update_uniforms_buffer.as_entire_binding(),
                     },
                 ],
             }),
             device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Update Bind Group 1"),
-                layout: &compute_bind_group_layout,
+                layout: &update_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -421,7 +426,7 @@ impl ParticleSystem {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: compute_uniforms_buffer.as_entire_binding(),
+                        resource: update_uniforms_buffer.as_entire_binding(),
                     },
                 ],
             }),
@@ -430,14 +435,14 @@ impl ParticleSystem {
         let update_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Compute Pipeline Layout"),
-                bind_group_layouts: &[&compute_bind_group_layout],
+                bind_group_layouts: &[&update_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
         let update_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Compute Pipeline"),
             layout: Some(&update_pipeline_layout),
-            module: &compute_shader,
+            module: &update_shader,
             entry_point: Some("main"),
             compilation_options: Default::default(),
             cache: None,
@@ -571,7 +576,7 @@ impl ParticleSystem {
             max_particles,
             current_buffer: 0,
             compact_buffer,
-            compute_uniforms_buffer,
+            update_uniforms_buffer,
             emit_uniforms_buffer,
             render_uniforms_buffer,
             emit_pipeline,
@@ -586,6 +591,7 @@ impl ParticleSystem {
             render_bind_group,
             emit_rate: 65536.0,
             frame: 0,
+            lifetime: info.lifetime,
             accumulated_emit: 0.0,
         }
     }
@@ -594,7 +600,7 @@ impl ParticleSystem {
         &mut self,
         queue: &wgpu::Queue,
         frame: &mut RenderFrame,
-        uniforms: ComputeUniforms,
+        uniforms: UpdateUniforms,
     ) {
         let dt = uniforms.delta_time;
 
@@ -603,7 +609,7 @@ impl ParticleSystem {
 
         // === STEP 1: Update existing particles ===
         queue.write_buffer(
-            &self.compute_uniforms_buffer,
+            &self.update_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[uniforms]),
         );
@@ -618,7 +624,7 @@ impl ParticleSystem {
 
         compute_pass.set_pipeline(&self.update_pipeline);
         compute_pass.set_bind_group(0, &self.update_bind_groups[self.current_buffer], &[]);
-        compute_pass.dispatch_workgroups(self.max_particles.div_ceil(64), 1, 1);
+        compute_pass.dispatch_workgroups(self.max_particles.div_ceil(256), 1, 1);
         drop(compute_pass);
 
         self.current_buffer = 1 - self.current_buffer;
@@ -636,17 +642,18 @@ impl ParticleSystem {
 
         compute_pass.set_pipeline(&self.compact_pipeline);
         compute_pass.set_bind_group(0, &self.compact_bind_groups[self.current_buffer], &[]);
-        compute_pass.dispatch_workgroups(self.max_particles.div_ceil(64), 1, 1);
+        compute_pass.dispatch_workgroups(self.max_particles.div_ceil(256), 1, 1);
         drop(compute_pass);
 
         self.current_buffer = 1 - self.current_buffer;
+    }
 
-        // === STEP 3: Emit new particles ===
+    pub fn emit(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame) {
         let particles_to_emit = self.accumulated_emit.floor() as u32;
         if particles_to_emit > 0 {
-            let estimated_alive = self.particles_count.saturating_sub(
-                (particles_to_emit as f32 * 0.1) as u32,
-            );
+            let estimated_alive = self
+                .particles_count
+                .saturating_sub((particles_to_emit as f32 * 0.1) as u32);
 
             let space_available = self.max_particles.saturating_sub(estimated_alive);
             let actual_emit = particles_to_emit.min(space_available);
@@ -655,7 +662,8 @@ impl ParticleSystem {
                 let emit_uniforms = EmitUniforms {
                     frame: self.frame,
                     count: actual_emit,
-                    padding: [0.0; 2],
+                    lifetime: self.lifetime,
+                    padding: [0.0; 1],
                 };
 
                 queue.write_buffer(
@@ -674,7 +682,7 @@ impl ParticleSystem {
 
                 compute_pass.set_pipeline(&self.emit_pipeline);
                 compute_pass.set_bind_group(0, &self.emit_bind_groups[self.current_buffer], &[]);
-                compute_pass.dispatch_workgroups(actual_emit.div_ceil(64), 1, 1);
+                compute_pass.dispatch_workgroups(actual_emit.div_ceil(256), 1, 1);
                 drop(compute_pass);
 
                 self.accumulated_emit -= actual_emit as f32;
