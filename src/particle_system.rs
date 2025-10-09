@@ -60,6 +60,12 @@ pub enum ParticleShape {
     Quads,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SimulationState {
+    Playing,
+    Paused,
+}
+
 pub struct ParticleSystemInfo {
     pub shape: ParticleShape,
     pub rate: u32,
@@ -94,6 +100,8 @@ pub struct ParticleSystem {
     lifetime: f32,
     frame: u32,
     accumulated_emit: f32,
+
+    state: SimulationState,
 }
 
 impl ParticleSystem {
@@ -149,6 +157,7 @@ impl ParticleSystem {
             frame: 0,
             lifetime: info.lifetime,
             accumulated_emit: 0.0,
+            state: SimulationState::Playing
         }
     }
 
@@ -770,6 +779,10 @@ impl ParticleSystem {
         frame: &mut RenderFrame,
         uniforms: UpdateUniforms,
     ) {
+        if self.is_paused() {
+            return;
+        }
+
         let dt = uniforms.delta_time;
 
         self.frame += 1;
@@ -828,5 +841,25 @@ impl ParticleSystem {
 
     pub fn set_shape(&mut self, shape: ParticleShape) {
         self.particles_shape = shape;
+    }
+
+    pub fn pause(&mut self) {
+        self.state = SimulationState::Paused;
+    }
+
+    pub fn resume(&mut self) {
+        self.state = SimulationState::Playing;
+    }
+
+    pub fn restart(&mut self, queue: &wgpu::Queue) {
+        self.particles_count = 0;
+        self.accumulated_emit = 0.0;
+        self.frame = 0;
+        queue.write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
+        self.state = SimulationState::Playing;
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.state == SimulationState::Paused
     }
 }

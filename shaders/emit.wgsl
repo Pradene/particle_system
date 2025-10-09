@@ -92,7 +92,7 @@ fn main(
 
     particles[write_index].position = vec4(position, 1.0);
     particles[write_index].velocity = vec4(velocity, 0.0);
-    particles[write_index].color = vec4(1.0, 0.55, 0.0, 0.1);
+    particles[write_index].color = vec4(1.0, 0.75, 0.80, 0.1);
     particles[write_index].mass = 1.0;
     particles[write_index].lifetime = uniforms.lifetime;
 }

@@ -153,6 +153,47 @@ impl ApplicationHandler for App {
                 event:
                     KeyEvent {
                         state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::KeyP),
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(particle_system) = &mut self.particle_system {
+                    particle_system.pause();
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::KeyT),
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(particle_system) = &mut self.particle_system {
+                    if let Some(renderer) = &self.renderer {
+                        particle_system.restart(renderer.queue());
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
+                        physical_key: PhysicalKey::Code(KeyCode::KeyR),
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(particle_system) = &mut self.particle_system {
+                    particle_system.resume();
+                }
+            }
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state: ElementState::Pressed,
                         physical_key: PhysicalKey::Code(KeyCode::KeyQ),
                         ..
                     },
