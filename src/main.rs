@@ -1,7 +1,7 @@
 mod app;
 mod camera;
-mod camera_controller;
 mod particle_system;
+mod input_handler;
 mod renderer;
 mod timer;
 

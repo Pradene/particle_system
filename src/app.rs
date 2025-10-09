@@ -1,7 +1,7 @@
 use {
     crate::{
+        input_handler::InputHandler,
         camera::Camera,
-        camera_controller::CameraController,
         particle_system::{ParticleShape, ParticleSystem, ParticleSystemInfo, UpdateUniforms},
         renderer::Renderer,
         timer::Timer,
@@ -10,7 +10,7 @@ use {
     winit::{
         application::ApplicationHandler,
         dpi::{PhysicalPosition, PhysicalSize},
-        event::{DeviceEvent, DeviceId, ElementState, KeyEvent, WindowEvent},
+        event::{DeviceEvent, DeviceId, ElementState, WindowEvent},
         event_loop::ActiveEventLoop,
         keyboard::{KeyCode, PhysicalKey},
         window::{Fullscreen, Window, WindowId},
@@ -22,9 +22,9 @@ pub struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
     camera: Camera,
-    camera_controller: CameraController,
     timer: Timer,
     particle_system: Option<ParticleSystem>,
+    input_handler: InputHandler,
 }
 
 impl ApplicationHandler for App {
@@ -87,12 +87,13 @@ impl ApplicationHandler for App {
         self.window = Some(window);
         self.renderer = Some(renderer);
         self.timer = Timer::new();
-        self.camera_controller = CameraController::new();
+        self.input_handler = InputHandler::new();
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
-        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
-            self.camera_controller.process_mouse(dx as f32, dy as f32);
+        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {        
+            let sensitivity = 0.002; 
+            self.camera.rotate(dx as f32 * sensitivity, dy as f32 * sensitivity);
 
             // Reset cursor to center
             if let Some(window) = &self.window {
@@ -121,91 +122,8 @@ impl ApplicationHandler for App {
         }
 
         match event {
-            WindowEvent::CloseRequested
-            | WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::Escape),
-                        ..
-                    },
-                ..
-            } => {
+            WindowEvent::CloseRequested => {
                 event_loop.exit();
-            }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::F11),
-                        ..
-                    },
-                ..
-            } => {
-                if let Some(monitor) = window.current_monitor() {
-                    match window.fullscreen() {
-                        Some(_) => window.set_fullscreen(None),
-                        None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
-                    }
-                }
-            }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::KeyP),
-                        ..
-                    },
-                ..
-            } => {
-                if let Some(particle_system) = &mut self.particle_system {
-                    particle_system.pause();
-                }
-            }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::KeyT),
-                        ..
-                    },
-                ..
-            } => {
-                if let Some(particle_system) = &mut self.particle_system {
-                    if let Some(renderer) = &self.renderer {
-                        particle_system.restart(renderer.queue());
-                    }
-                }
-            }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::KeyR),
-                        ..
-                    },
-                ..
-            } => {
-                if let Some(particle_system) = &mut self.particle_system {
-                    particle_system.resume();
-                }
-            }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state: ElementState::Pressed,
-                        physical_key: PhysicalKey::Code(KeyCode::KeyQ),
-                        ..
-                    },
-                ..
-            } => {
-                if let Some(particle_system) = &mut self.particle_system {
-                    let shape = particle_system.get_shape();
-                    match shape {
-                        ParticleShape::Points => particle_system.set_shape(ParticleShape::Quads),
-                        ParticleShape::Quads => particle_system.set_shape(ParticleShape::Points),
-                    }
-                }
             }
             WindowEvent::Resized(physical_size) => {
                 self.camera
@@ -214,25 +132,87 @@ impl ApplicationHandler for App {
                     renderer.resize(physical_size);
                 }
             }
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state,
-                        physical_key: PhysicalKey::Code(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                self.camera_controller.process_keyboard(state, keycode);
+            WindowEvent::KeyboardInput { event, .. } => {
+                let key_code = match event.physical_key {
+                    PhysicalKey::Code(code) => code,
+                    _ => return,
+                };
+
+                // Update key state
+                match event.state {
+                    ElementState::Pressed => {
+                        self.input_handler.set_key(key_code, true);
+                    }
+                    ElementState::Released => {
+                        self.input_handler.set_key(key_code, false);
+                    }
+                }
+
+                // Handle one-time actions on key press
+                if event.state == ElementState::Pressed {
+                    match key_code {
+                        KeyCode::Escape => event_loop.exit(),
+                        KeyCode::F11 => {
+                            if let Some(monitor) = window.current_monitor() {
+                                match window.fullscreen() {
+                                    Some(_) => window.set_fullscreen(None),
+                                    None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                                }
+                            }
+                        },
+                        KeyCode::KeyR => {
+                            if let Some(particle_system) = &mut self.particle_system {
+                                particle_system.resume();
+                            }
+                        }
+                        KeyCode::KeyP => {
+                            if let Some(particle_system) = &mut self.particle_system {
+                                particle_system.pause();
+                            }
+                        }
+                        KeyCode::KeyT => {
+                            if let Some(particle_system) = &mut self.particle_system {
+                                if let Some(renderer) = &self.renderer {
+                                    particle_system.restart(renderer.queue());
+                                }
+                            }
+                        }
+                        KeyCode::KeyQ => {
+                            if let Some(particle_system) = &mut self.particle_system {
+                                let shape = particle_system.get_shape();
+                                match shape {
+                                    ParticleShape::Points => particle_system.set_shape(ParticleShape::Quads),
+                                    ParticleShape::Quads => particle_system.set_shape(ParticleShape::Points),
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
             WindowEvent::RedrawRequested => {
                 let delta_time = self.timer.tick();
+
+                let speed = 5.0;
+                let movement_amount = speed * delta_time;
+                
+                if self.input_handler.is_key_pressed(KeyCode::KeyW) {
+                    self.camera.translate(self.camera.forward() * movement_amount);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyS) {
+                    self.camera.translate(-self.camera.forward() * movement_amount);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyA) {
+                    self.camera.translate(-self.camera.right() * movement_amount);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyD) {
+                    self.camera.translate(self.camera.right() * movement_amount);
+                }
 
                 let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
                 window.set_title(title.as_str());
 
                 if let Some(renderer) = &mut self.renderer {
-                    self.camera_controller.update(&mut self.camera, delta_time);
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
