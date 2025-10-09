@@ -6,7 +6,6 @@ use {
         renderer::Renderer,
         timer::Timer,
     },
-    glam::vec3,
     std::sync::Arc,
     winit::{
         application::ApplicationHandler,
@@ -63,8 +62,8 @@ impl ApplicationHandler for App {
         }
 
         self.camera = Camera::new(
-            vec3(0.0, 0.0, 20.0),
-            vec3(0.0, 0.0, 0.0),
+            glam::vec3(0.0, 0.0, 20.0),
+            glam::vec3(0.0, 0.0, 0.0),
             1080.0 / 720.0,
             80.0,
             0.1,
@@ -95,7 +94,7 @@ impl ApplicationHandler for App {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
             self.camera_controller.process_mouse(dx as f32, dy as f32);
 
-            // reset cursor to center
+            // Reset cursor to center
             if let Some(window) = &self.window {
                 let size = window.inner_size();
                 let center = PhysicalPosition::new(size.width / 2, size.height / 2);

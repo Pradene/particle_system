@@ -1,22 +1,27 @@
-use glam::{Mat4, Quat, Vec3};
-
 #[derive(Default)]
 pub struct Camera {
-    position: Vec3,
-    orientation: Quat,
+    position: glam::Vec3,
+    orientation: glam::Quat,
     aspect: f32,
     fov_y: f32,
     near: f32,
     far: f32,
-    projection: Mat4,
+    projection: glam::Mat4,
 }
 
 impl Camera {
-    pub fn new(position: Vec3, target: Vec3, aspect: f32, fov_x: f32, near: f32, far: f32) -> Self {
+    pub fn new(
+        position: glam::Vec3,
+        target: glam::Vec3,
+        aspect: f32,
+        fov_x: f32,
+        near: f32,
+        far: f32,
+    ) -> Self {
         let fov_y = 2.0 * (fov_x / 2.0).tan().atan2(aspect);
 
         let forward = (target - position).normalize();
-        let orientation = Quat::from_rotation_arc(Vec3::NEG_Z, forward);
+        let orientation = glam::Quat::from_rotation_arc(glam::Vec3::NEG_Z, forward);
 
         let projection = Self::perspective(fov_y, aspect, near, far);
 
@@ -31,23 +36,23 @@ impl Camera {
         }
     }
 
-    pub fn projection(&self) -> Mat4 {
+    pub fn projection(&self) -> glam::Mat4 {
         self.projection
     }
 
-    pub fn view_proj(&self) -> Mat4 {
+    pub fn view_proj(&self) -> glam::Mat4 {
         self.projection() * self.view()
     }
 
-    pub fn forward(&self) -> Vec3 {
-        self.orientation * Vec3::NEG_Z
+    pub fn forward(&self) -> glam::Vec3 {
+        self.orientation * glam::Vec3::NEG_Z
     }
 
-    pub fn right(&self) -> Vec3 {
-        self.orientation * Vec3::NEG_X
+    pub fn right(&self) -> glam::Vec3 {
+        self.orientation * glam::Vec3::NEG_X
     }
 
-    pub fn position(&self) -> Vec3 {
+    pub fn position(&self) -> glam::Vec3 {
         self.position
     }
 
@@ -56,23 +61,23 @@ impl Camera {
         self.projection = Self::perspective(self.fov_y, self.aspect, self.near, self.far);
     }
 
-    pub fn translate(&mut self, offset: Vec3) {
+    pub fn translate(&mut self, offset: glam::Vec3) {
         self.position += offset;
     }
 
     pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        let yaw_quat = Quat::from_rotation_y(delta_yaw);
-        let pitch_quat = Quat::from_axis_angle(Vec3::X, delta_pitch);
+        let yaw_quat = glam::Quat::from_rotation_y(delta_yaw);
+        let pitch_quat = glam::Quat::from_axis_angle(glam::Vec3::X, delta_pitch);
 
         let orientation = yaw_quat * self.orientation * pitch_quat;
         self.orientation = orientation.normalize();
     }
 
-    pub fn view(&self) -> Mat4 {
-        Mat4::from_rotation_translation(self.orientation, self.position).inverse()
+    pub fn view(&self) -> glam::Mat4 {
+        glam::Mat4::from_rotation_translation(self.orientation, self.position).inverse()
     }
 
-    fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
-        Mat4::perspective_rh(fov_y, aspect, near, far)
+    fn perspective(fov_y: f32, aspect: f32, near: f32, far: f32) -> glam::Mat4 {
+        glam::Mat4::perspective_rh(fov_y, aspect, near, far)
     }
 }
