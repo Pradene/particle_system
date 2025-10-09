@@ -1,7 +1,7 @@
 use {
     crate::{
-        input_handler::InputHandler,
         camera::Camera,
+        input_handler::InputHandler,
         particle_system::{ParticleShape, ParticleSystem, ParticleSystemInfo, UpdateUniforms},
         renderer::Renderer,
         timer::Timer,
@@ -70,30 +70,33 @@ impl ApplicationHandler for App {
             100.0,
         );
 
-        if let Some(surface_format) = renderer.surface_format() {
-            let particle_system = ParticleSystem::new(
-                renderer.device(),
-                surface_format,
-                ParticleSystemInfo {
-                    shape: ParticleShape::Points,
-                    rate: 300000,
-                    lifetime: 10.0,
-                },
-            );
-
-            self.particle_system = Some(particle_system);
-        }
+        let surface_format = if let Some(surface_format) = renderer.surface_format() {
+            surface_format
+        } else {
+            event_loop.exit();
+            return;
+        };
 
         self.window = Some(window);
+        self.particle_system = Some(ParticleSystem::new(
+            renderer.device(),
+            surface_format,
+            ParticleSystemInfo {
+                shape: ParticleShape::Points,
+                rate: 300000,
+                lifetime: 10.0,
+            },
+        ));
         self.renderer = Some(renderer);
-        self.timer = Timer::new();
         self.input_handler = InputHandler::new();
+        self.timer = Timer::new();
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
-        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {        
-            let sensitivity = 0.002; 
-            self.camera.rotate(dx as f32 * sensitivity, dy as f32 * sensitivity);
+        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
+            let sensitivity = 0.002;
+            let (x, y) = (dx as f32 * sensitivity, dy as f32 * sensitivity);
+            self.camera.rotate(x, y);
 
             // Reset cursor to center
             if let Some(window) = &self.window {
@@ -156,10 +159,12 @@ impl ApplicationHandler for App {
                             if let Some(monitor) = window.current_monitor() {
                                 match window.fullscreen() {
                                     Some(_) => window.set_fullscreen(None),
-                                    None => window.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor)))),
+                                    None => window.set_fullscreen(Some(Fullscreen::Borderless(
+                                        Some(monitor),
+                                    ))),
                                 }
                             }
-                        },
+                        }
                         KeyCode::KeyR => {
                             if let Some(particle_system) = &mut self.particle_system {
                                 particle_system.resume();
@@ -181,8 +186,12 @@ impl ApplicationHandler for App {
                             if let Some(particle_system) = &mut self.particle_system {
                                 let shape = particle_system.get_shape();
                                 match shape {
-                                    ParticleShape::Points => particle_system.set_shape(ParticleShape::Quads),
-                                    ParticleShape::Quads => particle_system.set_shape(ParticleShape::Points),
+                                    ParticleShape::Points => {
+                                        particle_system.set_shape(ParticleShape::Quads)
+                                    }
+                                    ParticleShape::Quads => {
+                                        particle_system.set_shape(ParticleShape::Points)
+                                    }
                                 }
                             }
                         }
@@ -195,15 +204,18 @@ impl ApplicationHandler for App {
 
                 let speed = 5.0;
                 let movement_amount = speed * delta_time;
-                
+
                 if self.input_handler.is_key_pressed(KeyCode::KeyW) {
-                    self.camera.translate(self.camera.forward() * movement_amount);
+                    self.camera
+                        .translate(self.camera.forward() * movement_amount);
                 }
                 if self.input_handler.is_key_pressed(KeyCode::KeyS) {
-                    self.camera.translate(-self.camera.forward() * movement_amount);
+                    self.camera
+                        .translate(-self.camera.forward() * movement_amount);
                 }
                 if self.input_handler.is_key_pressed(KeyCode::KeyA) {
-                    self.camera.translate(-self.camera.right() * movement_amount);
+                    self.camera
+                        .translate(-self.camera.right() * movement_amount);
                 }
                 if self.input_handler.is_key_pressed(KeyCode::KeyD) {
                     self.camera.translate(self.camera.right() * movement_amount);

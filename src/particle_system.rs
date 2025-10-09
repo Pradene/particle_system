@@ -157,7 +157,7 @@ impl ParticleSystem {
             frame: 0,
             lifetime: info.lifetime,
             accumulated_emit: 0.0,
-            state: SimulationState::Playing
+            state: SimulationState::Playing,
         }
     }
 

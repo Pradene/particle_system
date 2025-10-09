@@ -1,4 +1,4 @@
-use {std::collections::HashSet, winit::keyboard::KeyCode, };
+use {std::collections::HashSet, winit::keyboard::KeyCode};
 
 pub struct InputHandler {
     keys: HashSet<KeyCode>,
@@ -12,7 +12,9 @@ impl Default for InputHandler {
 
 impl InputHandler {
     pub fn new() -> Self {
-        Self { keys: HashSet::new() }
+        Self {
+            keys: HashSet::new(),
+        }
     }
 
     pub fn set_key(&mut self, key: KeyCode, pressed: bool) {
