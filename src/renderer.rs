@@ -51,7 +51,10 @@ impl Renderer {
                 label: Some("Device"),
                 trace: wgpu::Trace::Off,
                 required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
+                required_limits: wgpu::Limits {
+                    max_storage_buffer_binding_size: 268435456,
+                    ..Default::default()
+                },
                 memory_hints: wgpu::MemoryHints::Performance,
             })
             .await

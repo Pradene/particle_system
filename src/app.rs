@@ -76,7 +76,7 @@ impl ApplicationHandler for App {
                 surface_format,
                 ParticleSystemInfo {
                     shape: ParticleShape::Points,
-                    rate: 65536,
+                    rate: 300000,
                     lifetime: 10.0,
                 },
             );
