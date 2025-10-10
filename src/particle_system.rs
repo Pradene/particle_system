@@ -783,18 +783,18 @@ impl ParticleSystem {
             return;
         }
 
-        let dt = uniforms.delta_time;
+        let delta_time = uniforms.delta_time;
 
         self.frame += 1;
-        self.accumulated_emit += self.emit_rate * dt;
+        self.accumulated_emit += self.emit_rate * delta_time;
 
         // Update particles
         self.update_particles(queue, frame, uniforms);
-        self.current_buffer = 1 - self.current_buffer;
+        self.swap_buffer();
 
         // Remove dead particles
         self.compact_particles(queue, frame);
-        self.current_buffer = 1 - self.current_buffer;
+        self.swap_buffer();
     }
 
     pub fn emit(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame) {
@@ -833,6 +833,10 @@ impl ParticleSystem {
         );
 
         self.render_particles(frame);
+    }
+
+    pub fn swap_buffer(&mut self) {
+        self.current_buffer = 1 - self.current_buffer;
     }
 
     pub fn get_shape(&self) -> ParticleShape {
