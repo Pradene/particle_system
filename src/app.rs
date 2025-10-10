@@ -184,15 +184,7 @@ impl ApplicationHandler for App {
                         }
                         KeyCode::KeyQ => {
                             if let Some(particle_system) = &mut self.particle_system {
-                                let shape = particle_system.get_shape();
-                                match shape {
-                                    ParticleShape::Points => {
-                                        particle_system.set_shape(ParticleShape::Quads)
-                                    }
-                                    ParticleShape::Quads => {
-                                        particle_system.set_shape(ParticleShape::Points)
-                                    }
-                                }
+                                particle_system.toggle_shape();
                             }
                         }
                         _ => {}

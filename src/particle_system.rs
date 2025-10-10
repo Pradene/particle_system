@@ -843,6 +843,13 @@ impl ParticleSystem {
         self.particles_shape = shape;
     }
 
+    pub fn toggle_shape(&mut self) {
+        self.particles_shape = match self.particles_shape {
+            ParticleShape::Points => ParticleShape::Quads,
+            ParticleShape::Quads => ParticleShape::Points,
+        };
+    }
+
     pub fn pause(&mut self) {
         self.state = SimulationState::Paused;
     }
