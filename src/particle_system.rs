@@ -60,6 +60,13 @@ pub enum ParticleShape {
     Quads,
 }
 
+#[allow(unused)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ParticleEmissionMode {
+    Burst(u32),
+    Continuous(u32),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SimulationState {
     Playing,
@@ -68,7 +75,7 @@ pub enum SimulationState {
 
 pub struct ParticleSystemInfo {
     pub shape: ParticleShape,
-    pub rate: u32,
+    pub emission_mode: ParticleEmissionMode,
     pub lifetime: f32,
 }
 
@@ -96,10 +103,10 @@ pub struct ParticleSystem {
     render_bind_group: wgpu::BindGroup,
 
     particles_shape: ParticleShape,
-    emit_rate: f32,
+    emission_mode: ParticleEmissionMode,
     lifetime: f32,
     frame: u32,
-    accumulated_emit: f32,
+    accumulated_emit: u32,
 
     state: SimulationState,
 }
@@ -110,7 +117,10 @@ impl ParticleSystem {
         surface_format: wgpu::TextureFormat,
         info: ParticleSystemInfo,
     ) -> Self {
-        let max_particles = info.rate * info.lifetime.ceil() as u32;
+        let max_particles = match info.emission_mode {
+            ParticleEmissionMode::Burst(count) => count,
+            ParticleEmissionMode::Continuous(rate) => rate * info.lifetime.ceil() as u32,
+        };
 
         let particles_buffers = Self::create_particle_buffers(device, max_particles);
         let compact_buffer = Self::create_compact_buffer(device);
@@ -153,10 +163,10 @@ impl ParticleSystem {
             render_point_pipeline,
             render_quad_pipeline,
             render_bind_group,
-            emit_rate: 65536.0,
+            emission_mode: info.emission_mode,
             frame: 0,
             lifetime: info.lifetime,
-            accumulated_emit: 0.0,
+            accumulated_emit: 0,
             state: SimulationState::Playing,
         }
     }
@@ -785,8 +795,16 @@ impl ParticleSystem {
 
         let delta_time = uniforms.delta_time;
 
-        self.frame += 1;
-        self.accumulated_emit += self.emit_rate * delta_time;
+        self.accumulated_emit += match self.emission_mode {
+            ParticleEmissionMode::Continuous(rate) => (rate as f32 * delta_time) as u32,
+            ParticleEmissionMode::Burst(count) => {
+                if self.frame == 0 {
+                    count
+                } else {
+                    0
+                }
+            }
+        };
 
         // Update particles
         self.update_particles(queue, frame, uniforms);
@@ -795,24 +813,24 @@ impl ParticleSystem {
         // Remove dead particles
         self.compact_particles(queue, frame);
         self.swap_buffer();
+
+        self.frame += 1;
     }
 
     pub fn emit(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame) {
-        let particles_to_emit = self.accumulated_emit.floor() as u32;
-        if particles_to_emit > 0 {
-            let estimated_alive = self
-                .particles_count
-                .saturating_sub((particles_to_emit as f32 * 0.1) as u32);
+        let particles_to_emit = self.accumulated_emit;
+        if particles_to_emit == 0 {
+            return;
+        }
 
-            let space_available = self.max_particles.saturating_sub(estimated_alive);
-            let actual_emit = particles_to_emit.min(space_available);
+        // After compaction, particles_count is accurate
+        let space_available = self.max_particles.saturating_sub(self.particles_count);
+        let actual_emit = particles_to_emit.min(space_available);
 
-            if actual_emit > 0 {
-                self.emit_particles(queue, frame, actual_emit);
-
-                self.accumulated_emit -= actual_emit as f32;
-                self.particles_count = (estimated_alive + actual_emit).min(self.max_particles);
-            }
+        if actual_emit > 0 {
+            self.emit_particles(queue, frame, actual_emit);
+            self.accumulated_emit -= actual_emit;
+            self.particles_count += actual_emit;
         }
     }
 
@@ -839,14 +857,6 @@ impl ParticleSystem {
         self.current_buffer = 1 - self.current_buffer;
     }
 
-    pub fn get_shape(&self) -> ParticleShape {
-        self.particles_shape
-    }
-
-    pub fn set_shape(&mut self, shape: ParticleShape) {
-        self.particles_shape = shape;
-    }
-
     pub fn toggle_shape(&mut self) {
         self.particles_shape = match self.particles_shape {
             ParticleShape::Points => ParticleShape::Quads,
@@ -864,7 +874,7 @@ impl ParticleSystem {
 
     pub fn restart(&mut self, queue: &wgpu::Queue) {
         self.particles_count = 0;
-        self.accumulated_emit = 0.0;
+        self.accumulated_emit = 0;
         self.frame = 0;
         queue.write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
         self.state = SimulationState::Playing;

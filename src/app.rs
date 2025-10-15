@@ -2,10 +2,13 @@ use {
     crate::{
         camera::Camera,
         input_handler::InputHandler,
-        particle_system::{ParticleShape, ParticleSystem, ParticleSystemInfo, UpdateUniforms},
+        particle_system::{
+            ParticleEmissionMode, ParticleShape, ParticleSystem, ParticleSystemInfo, UpdateUniforms,
+        },
         renderer::Renderer,
         timer::Timer,
     },
+    core::f32,
     std::sync::Arc,
     winit::{
         application::ApplicationHandler,
@@ -77,16 +80,18 @@ impl ApplicationHandler for App {
             return;
         };
 
-        self.window = Some(window);
-        self.particle_system = Some(ParticleSystem::new(
+        let particle_system = ParticleSystem::new(
             renderer.device(),
             surface_format,
             ParticleSystemInfo {
                 shape: ParticleShape::Points,
-                rate: 300000,
-                lifetime: 10.0,
+                emission_mode: ParticleEmissionMode::Burst(1000000),
+                lifetime: f32::INFINITY,
             },
-        ));
+        );
+
+        self.particle_system = Some(particle_system);
+        self.window = Some(window);
         self.renderer = Some(renderer);
         self.input_handler = InputHandler::new();
         self.timer = Timer::new();
@@ -176,10 +181,10 @@ impl ApplicationHandler for App {
                             }
                         }
                         KeyCode::KeyT => {
-                            if let Some(particle_system) = &mut self.particle_system {
-                                if let Some(renderer) = &self.renderer {
-                                    particle_system.restart(renderer.queue());
-                                }
+                            if let Some(particle_system) = &mut self.particle_system
+                                && let Some(renderer) = &self.renderer
+                            {
+                                particle_system.restart(renderer.queue());
                             }
                         }
                         KeyCode::KeyQ => {

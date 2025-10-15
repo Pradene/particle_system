@@ -1,7 +1,6 @@
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct Timer {
-    start: Instant,
     last_frame: Instant,
 }
 
@@ -9,7 +8,6 @@ impl Default for Timer {
     fn default() -> Self {
         let now = Instant::now();
         Self {
-            start: now,
             last_frame: now,
         }
     }
@@ -25,9 +23,5 @@ impl Timer {
         let delta_time = current_time.duration_since(self.last_frame).as_secs_f32();
         self.last_frame = current_time;
         delta_time
-    }
-
-    pub fn elapsed(&self) -> Duration {
-        Instant::now().duration_since(self.start)
     }
 }
