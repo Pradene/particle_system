@@ -234,8 +234,9 @@ impl ApplicationHandler for App {
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
+                                let gravity_center = (self.camera.position() + self.camera.forward() * 20.0).extend(1.0).to_array();
                                 let uniforms = UpdateUniforms {
-                                    gravity_center: [0.0, 0.0, 0.0, 1.0],
+                                    gravity_center,
                                     gravity_strength: 10.0,
                                     delta_time,
                                     padding: [0.0; 2],
