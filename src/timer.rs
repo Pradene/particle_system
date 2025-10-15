@@ -7,9 +7,7 @@ pub struct Timer {
 impl Default for Timer {
     fn default() -> Self {
         let now = Instant::now();
-        Self {
-            last_frame: now,
-        }
+        Self { last_frame: now }
     }
 }
 

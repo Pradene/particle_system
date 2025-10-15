@@ -153,27 +153,29 @@ impl Renderer {
     }
 
     pub fn begin_frame(&self) -> Result<RenderFrame<'_>, wgpu::SurfaceError> {
-        if let (Some(surface), Some(depth_view)) = (&self.surface, &self.depth_texture) {
-            let output = surface.get_current_texture()?;
-            let view = output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
+        let surface = self.surface.as_ref().ok_or(wgpu::SurfaceError::Lost)?;
+        let depth_view = self
+            .depth_texture
+            .as_ref()
+            .ok_or(wgpu::SurfaceError::Lost)?;
 
-            let encoder = self
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Main Encoder"),
-                });
+        let output = surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
-            Ok(RenderFrame {
-                output,
-                view,
-                depth_view,
-                encoder,
-            })
-        } else {
-            Err(wgpu::SurfaceError::Lost)
-        }
+        let encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Main Encoder"),
+            });
+
+        Ok(RenderFrame {
+            output,
+            view,
+            depth_view,
+            encoder,
+        })
     }
 
     pub fn end_frame(&self, frame: RenderFrame) {

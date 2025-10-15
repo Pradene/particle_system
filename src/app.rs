@@ -161,12 +161,21 @@ impl ApplicationHandler for App {
                     match key_code {
                         KeyCode::Escape => event_loop.exit(),
                         KeyCode::F11 => {
-                            if let Some(monitor) = window.current_monitor() {
+                            let monitor = window
+                                .current_monitor()
+                                .or_else(|| window.available_monitors().next());
+
+                            if let Some(monitor) = monitor {
                                 match window.fullscreen() {
                                     Some(_) => window.set_fullscreen(None),
                                     None => window.set_fullscreen(Some(Fullscreen::Borderless(
                                         Some(monitor),
                                     ))),
+                                }
+
+                                if let Some(renderer) = &mut self.renderer {
+                                    let size = window.inner_size();
+                                    renderer.resize(size);
                                 }
                             }
                         }
@@ -240,12 +249,10 @@ impl ApplicationHandler for App {
 
                             renderer.end_frame(frame);
                         }
-                        Err(wgpu::SurfaceError::Lost) => {
-                            if let Some(renderer) = &mut self.renderer
-                                && let Err(e) = renderer.create_surface(window.clone())
-                            {
-                                eprintln!("Failed to recreate surface: {e}");
-                                event_loop.exit();
+                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                            let size = window.inner_size();
+                            if let Some(renderer) = &mut self.renderer {
+                                renderer.resize(size);
                             }
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {
