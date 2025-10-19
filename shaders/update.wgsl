@@ -3,20 +3,20 @@ struct Particle {
     velocity: vec4<f32>,
     color: vec4<f32>,
     mass: f32,
-    lifetime: f32
+    lifetime: f32,
 }
 
 struct UpdateUniforms {
     gravity_center: vec4<f32>,
-    gravity_strength: f32,
+    elapsed_time: f32,
     delta_time: f32,
 }
 
-@group(0) @binding(0) var<storage, read> particles_in: array<Particle>;
-@group(0) @binding(1) var<storage, read_write> particles_out: array<Particle>;
-@group(0) @binding(2) var<uniform> uniforms: UpdateUniforms;
+@group(0) @binding(0) var<uniform> uniforms: UpdateUniforms;
+@group(0) @binding(1) var<storage, read> particles_in: array<Particle>;
+@group(0) @binding(2) var<storage, read_write> particles_out: array<Particle>;
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
     if (index >= arrayLength(&particles_in)) {
@@ -38,7 +38,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Calculate gravitational force (F = G * m / r^2)
     let direction = normalize(to_center);
-    let force_magnitude = uniforms.gravity_strength / (safe_distance * safe_distance);
+    let force_magnitude = 10.0 / (safe_distance * safe_distance);
     let acceleration = direction * force_magnitude;
 
     // Update velocity and position
@@ -46,7 +46,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var new_position = particle.position + new_velocity * dt;
     var new_mass = particle.mass;
 
-    var new_color = vec4(particle.color.rgb, 1.0 - distance * 0.05);
+    var new_color = vec4(particle.color.rgb, 0.2 - distance * 0.01);
 
     // Write to output buffer
     particles_out[index].position = new_position;

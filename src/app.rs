@@ -3,7 +3,7 @@ use {
         camera::Camera,
         input_handler::InputHandler,
         particle_system::{
-            ParticleEmissionMode, ParticleShape, ParticleSystem, ParticleSystemInfo, UpdateUniforms,
+            ParticleEmissionMode, ParticleSystem, ParticleSystemInfo, UpdateUniforms,
         },
         renderer::Renderer,
         timer::Timer,
@@ -68,7 +68,7 @@ impl ApplicationHandler for App {
             glam::vec3(0.0, 0.0, 20.0),
             glam::vec3(0.0, 0.0, 0.0),
             1080.0 / 720.0,
-            80.0,
+            120.0f32.to_radians(),
             0.1,
             100.0,
         );
@@ -84,7 +84,6 @@ impl ApplicationHandler for App {
             renderer.device(),
             surface_format,
             ParticleSystemInfo {
-                shape: ParticleShape::Points,
                 emission_mode: ParticleEmissionMode::Burst(1000000),
                 lifetime: f32::INFINITY,
             },
@@ -196,11 +195,6 @@ impl ApplicationHandler for App {
                                 particle_system.restart(renderer.queue());
                             }
                         }
-                        KeyCode::KeyQ => {
-                            if let Some(particle_system) = &mut self.particle_system {
-                                particle_system.toggle_shape();
-                            }
-                        }
                         _ => {}
                     }
                 }
@@ -209,22 +203,19 @@ impl ApplicationHandler for App {
                 let delta_time = self.timer.tick();
 
                 let speed = 5.0;
-                let movement_amount = speed * delta_time;
+                let scale = speed * delta_time;
 
                 if self.input_handler.is_key_pressed(KeyCode::KeyW) {
-                    self.camera
-                        .translate(self.camera.forward() * movement_amount);
-                }
-                if self.input_handler.is_key_pressed(KeyCode::KeyS) {
-                    self.camera
-                        .translate(-self.camera.forward() * movement_amount);
+                    self.camera.translate(self.camera.forward() * scale);
                 }
                 if self.input_handler.is_key_pressed(KeyCode::KeyA) {
-                    self.camera
-                        .translate(-self.camera.right() * movement_amount);
+                    self.camera.translate(-self.camera.right() * scale);
+                }
+                if self.input_handler.is_key_pressed(KeyCode::KeyS) {
+                    self.camera.translate(-self.camera.forward() * scale);
                 }
                 if self.input_handler.is_key_pressed(KeyCode::KeyD) {
-                    self.camera.translate(self.camera.right() * movement_amount);
+                    self.camera.translate(self.camera.right() * scale);
                 }
 
                 let title = format!("Particle system ({} FPS)", (1.0 / delta_time) as u32);
@@ -234,10 +225,13 @@ impl ApplicationHandler for App {
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
-                                let gravity_center = (self.camera.position() + self.camera.forward() * 20.0).extend(1.0).to_array();
+                                let gravity_center = (self.camera.position()
+                                    + self.camera.forward() * 20.0)
+                                    .extend(1.0)
+                                    .to_array();
                                 let uniforms = UpdateUniforms {
                                     gravity_center,
-                                    gravity_strength: 10.0,
+                                    elapsed_time: particle_system.elapsed_time(),
                                     delta_time,
                                     padding: [0.0; 2],
                                 };

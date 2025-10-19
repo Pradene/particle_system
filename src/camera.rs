@@ -18,7 +18,7 @@ impl Camera {
         near: f32,
         far: f32,
     ) -> Self {
-        let fov_y = 2.0 * (fov_x / 2.0).tan().atan2(aspect);
+        let fov_y = 2.0 * ((fov_x / 2.0).tan() / aspect).atan();
 
         let forward = (target - position).normalize();
         let orientation = glam::Quat::from_rotation_arc(glam::Vec3::NEG_Z, forward);
@@ -49,7 +49,11 @@ impl Camera {
     }
 
     pub fn right(&self) -> glam::Vec3 {
-        self.orientation * glam::Vec3::NEG_X
+        self.orientation * glam::Vec3::X
+    }
+
+    pub fn up(&self) -> glam::Vec3 {
+        self.orientation * glam::Vec3::Y
     }
 
     pub fn position(&self) -> glam::Vec3 {
@@ -66,11 +70,10 @@ impl Camera {
     }
 
     pub fn rotate(&mut self, delta_yaw: f32, delta_pitch: f32) {
-        let yaw_quat = glam::Quat::from_rotation_y(delta_yaw);
-        let pitch_quat = glam::Quat::from_axis_angle(glam::Vec3::X, delta_pitch);
+        let yaw_quat = glam::Quat::from_axis_angle(glam::Vec3::Y, -delta_yaw);
+        let pitch_quat = glam::Quat::from_axis_angle(self.right(), -delta_pitch);
 
-        let orientation = yaw_quat * self.orientation * pitch_quat;
-        self.orientation = orientation.normalize();
+        self.orientation = (yaw_quat * pitch_quat * self.orientation).normalize();
     }
 
     pub fn view(&self) -> glam::Mat4 {

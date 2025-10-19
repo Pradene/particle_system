@@ -7,13 +7,13 @@ struct Particle {
 }
 
 struct EmitUniforms {
-    frame: u32,
     count: u32,
+    elapsed_time: f32,
     lifetime: f32,
 }
 
-@group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
-@group(0) @binding(1) var<uniform> uniforms: EmitUniforms;
+@group(0) @binding(0) var<uniform> uniforms: EmitUniforms;
+@group(0) @binding(1) var<storage, read_write> particles: array<Particle>;
 @group(0) @binding(2) var<storage, read_write> particle_count: atomic<u32>;
 
 fn hash(x: u32) -> u32 {
@@ -50,13 +50,8 @@ fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
 }
 
 @compute @workgroup_size(256)
-fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>
-) {
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
-    
     if (index >= uniforms.count) {
         return;
     }
@@ -66,33 +61,27 @@ fn main(
         return;
     }
 
-    var seed = hash(hash(write_index) ^ (uniforms.frame * 7919u));
+    var seed = hash(hash(write_index) ^ (bitcast<u32>(uniforms.elapsed_time) * 7919u));
 
     let min_radius = 8.0;
-    let max_radius = 16.0;
+    let max_radius = 12.0;
     let radius = random_range(&seed, min_radius, max_radius);
 
     let direction = random_on_sphere(&seed);
-    let position = direction * radius;
+    let position = vec4(direction * radius, 1.0);
 
     let gravitational_constant = 10.0;
     let orbital_speed = sqrt(gravitational_constant / radius);
 
     let up = vec3<f32>(0.0, 1.0, 0.0);
-    var tangent = normalize(cross(direction, up));
+    let tangent = normalize(cross(direction, up));
 
-    if (length(tangent) < 0.1) {
-        tangent = normalize(cross(direction, vec3<f32>(1.0, 0.0, 0.0)));
-    }
+    let velocity = vec4(tangent * orbital_speed, 0.0);
+    let color = vec4(1.0, 0.75, 0.80, 0.2);
 
-    let inclination = random_range(&seed, -0.8, 0.8);
-    tangent = normalize(tangent + direction * inclination);
-
-    let velocity = tangent * orbital_speed;
-
-    particles[write_index].position = vec4(position, 1.0);
-    particles[write_index].velocity = vec4(velocity, 0.0);
-    particles[write_index].color = vec4(1.0, 0.75, 0.80, 0.1);
+    particles[write_index].position = position;
+    particles[write_index].velocity = velocity;
+    particles[write_index].color = color;
     particles[write_index].mass = 1.0;
     particles[write_index].lifetime = uniforms.lifetime;
 }

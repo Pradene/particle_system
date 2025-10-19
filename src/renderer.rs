@@ -80,7 +80,7 @@ impl Renderer {
 
         let surface_caps = surface.get_capabilities(&self.adapter);
 
-        let present_mode = wgpu::PresentMode::Immediate;
+        let present_mode = wgpu::PresentMode::AutoVsync;
 
         let surface_format = surface_caps
             .formats
