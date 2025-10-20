@@ -1,4 +1,4 @@
-use {std::sync::Arc, winit::window::Window};
+use {std::{sync::Arc}, winit::window::Window};
 
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -152,7 +152,7 @@ impl Renderer {
         }
     }
 
-    pub fn begin_frame(&self) -> Result<RenderFrame<'_>, wgpu::SurfaceError> {
+    pub fn begin_frame(&self) -> Result<RenderContext<'_>, wgpu::SurfaceError> {
         let surface = self.surface.as_ref().ok_or(wgpu::SurfaceError::Lost)?;
         let depth_view = self
             .depth_texture
@@ -170,17 +170,24 @@ impl Renderer {
                 label: Some("Main Encoder"),
             });
 
-        Ok(RenderFrame {
+        let queue = self.queue();
+
+        Ok(RenderContext {
             output,
             view,
             depth_view,
             encoder,
+            queue,
         })
     }
 
-    pub fn end_frame(&self, frame: RenderFrame) {
-        self.queue.submit(std::iter::once(frame.encoder.finish()));
-        frame.output.present();
+    pub fn end_frame(&self, frame: RenderContext) {
+        let queue = frame.queue;
+        let output = frame.output;
+        let encoder = frame.encoder.finish();
+
+        queue.submit(std::iter::once(encoder));
+        output.present();
     }
 
     pub fn device(&self) -> &wgpu::Device {
@@ -196,20 +203,25 @@ impl Renderer {
     }
 }
 
-pub struct RenderFrame<'a> {
+pub struct RenderContext<'a> {
     output: wgpu::SurfaceTexture,
     view: wgpu::TextureView,
     depth_view: &'a wgpu::TextureView,
     encoder: wgpu::CommandEncoder,
+    queue: &'a wgpu::Queue,
 }
 
-impl<'a> RenderFrame<'a> {
+impl<'a> RenderContext<'a> {
     pub fn view(&self) -> &wgpu::TextureView {
         &self.view
     }
 
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.queue
+    }
+
     pub fn depth_view(&self) -> &wgpu::TextureView {
-        self.depth_view
+        &self.depth_view
     }
 
     pub fn encoder_mut(&mut self) -> &mut wgpu::CommandEncoder {

@@ -52,10 +52,6 @@ impl Camera {
         self.orientation * glam::Vec3::X
     }
 
-    pub fn up(&self) -> glam::Vec3 {
-        self.orientation * glam::Vec3::Y
-    }
-
     pub fn position(&self) -> glam::Vec3 {
         self.position
     }

@@ -68,7 +68,7 @@ impl ApplicationHandler for App {
             glam::vec3(0.0, 0.0, 20.0),
             glam::vec3(0.0, 0.0, 0.0),
             1080.0 / 720.0,
-            120.0f32.to_radians(),
+            (120.0f32).to_radians(),
             0.1,
             100.0,
         );
@@ -236,10 +236,9 @@ impl ApplicationHandler for App {
                                     padding: [0.0; 2],
                                 };
 
-                                particle_system.update(renderer.queue(), &mut frame, uniforms);
-                                particle_system.emit(renderer.queue(), &mut frame);
-
-                                particle_system.render(renderer.queue(), &mut frame, &self.camera);
+                                particle_system.update(&mut frame, uniforms);
+                                particle_system.emit(&mut frame);
+                                particle_system.render(&mut frame, &self.camera);
                             }
 
                             renderer.end_frame(frame);

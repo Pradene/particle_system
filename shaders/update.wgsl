@@ -46,7 +46,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var new_position = particle.position + new_velocity * dt;
     var new_mass = particle.mass;
 
-    var new_color = vec4(particle.color.rgb, 0.2 - distance * 0.01);
+    var new_color = vec4(particle.color.rgb, 0.3 - min(distance * 0.02, 0.2));
 
     // Write to output buffer
     particles_out[index].position = new_position;

@@ -1,5 +1,5 @@
 use {
-    crate::{camera::Camera, renderer::RenderFrame},
+    crate::{camera::Camera, renderer::RenderContext},
     std::time::Instant,
 };
 
@@ -57,7 +57,6 @@ pub struct ParticleSystemInfo {
 }
 
 pub struct ParticleSystem {
-    particles_buffers: [wgpu::Buffer; 2],
     particles_count: u32,
     max_particles: u32,
     current_buffer: usize,
@@ -120,7 +119,6 @@ impl ParticleSystem {
             Self::create_render_pipeline(device, surface_format, &particles_buffers, &render_uniforms_buffer);
 
         Self {
-            particles_buffers,
             particles_count: 0,
             max_particles,
             current_buffer: 0,
@@ -636,11 +634,10 @@ impl ParticleSystem {
 
     fn update_particles(
         &mut self,
-        queue: &wgpu::Queue,
-        frame: &mut RenderFrame,
+        frame: &mut RenderContext,
         uniforms: UpdateUniforms,
     ) {
-        queue.write_buffer(
+        frame.queue().write_buffer(
             &self.update_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[uniforms]),
@@ -660,8 +657,8 @@ impl ParticleSystem {
         drop(pass);
     }
 
-    fn compact_particles(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame) {
-        queue.write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
+    fn compact_particles(&mut self, frame: &mut RenderContext) {
+        frame.queue().write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
 
         let mut pass = frame
             .encoder_mut()
@@ -677,7 +674,7 @@ impl ParticleSystem {
         drop(pass);
     }
 
-    fn emit_particles(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame, actual_emit: u32) {
+    fn emit_particles(&mut self, frame: &mut RenderContext, actual_emit: u32) {
         let emit_uniforms = EmitUniforms {
             count: actual_emit,
             elapsed_time: self.elapsed_time(),
@@ -685,7 +682,7 @@ impl ParticleSystem {
             padding: [0.0; 1],
         };
 
-        queue.write_buffer(
+        frame.queue().write_buffer(
             &self.emit_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[emit_uniforms]),
@@ -705,7 +702,7 @@ impl ParticleSystem {
         drop(pass);
     }
 
-    fn render_particles(&self, frame: &mut RenderFrame) {
+    fn render_particles(&self, frame: &mut RenderContext) {
         let view = frame.view().clone();
         let depth_view = frame.depth_view().clone();
         let mut render_pass = frame
@@ -740,8 +737,7 @@ impl ParticleSystem {
 
     pub fn update(
         &mut self,
-        queue: &wgpu::Queue,
-        frame: &mut RenderFrame,
+        frame: &mut RenderContext,
         uniforms: UpdateUniforms,
     ) {
         if self.is_paused() {
@@ -755,14 +751,13 @@ impl ParticleSystem {
             ParticleEmissionMode::Burst(count) => count,
         };
 
-        self.compact_particles(queue, frame);
-        // self.swap_buffer();
+        self.compact_particles(frame);
 
-        self.update_particles(queue, frame, uniforms);
+        self.update_particles(frame, uniforms);
         self.swap_buffer();
     }
 
-    pub fn emit(&mut self, queue: &wgpu::Queue, frame: &mut RenderFrame) {
+    pub fn emit(&mut self, frame: &mut RenderContext) {
         let particles_to_emit = self.accumulated_emit;
         if particles_to_emit == 0 {
             return;
@@ -773,18 +768,18 @@ impl ParticleSystem {
         let actual_emit = particles_to_emit.min(space_available);
 
         if actual_emit > 0 {
-            self.emit_particles(queue, frame, actual_emit);
+            self.emit_particles(frame, actual_emit);
             self.accumulated_emit -= actual_emit;
             self.particles_count += actual_emit;
         }
     }
 
-    pub fn render(&self, queue: &wgpu::Queue, frame: &mut RenderFrame, camera: &Camera) {
+    pub fn render(&self, frame: &mut RenderContext, camera: &Camera) {
         let uniforms = RenderUniforms {
             view_proj: camera.view_proj().to_cols_array_2d(),
         };
 
-        queue.write_buffer(
+        frame.queue().write_buffer(
             &self.render_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[uniforms]),
