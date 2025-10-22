@@ -113,7 +113,8 @@ impl Renderer {
 
         surface.configure(&self.device, &config);
 
-        self.depth_texture = Some(self.create_depth_texture(size.width, size.height));
+        self.create_depth_texture(size.width, size.height);
+
         self.window = Some(window);
         self.surface = Some(surface);
         self.surface_config = Some(config);
@@ -121,7 +122,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn create_depth_texture(&self, width: u32, height: u32) -> wgpu::TextureView {
+    fn create_depth_texture(&mut self, width: u32, height: u32) {
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Depth Texture"),
             size: wgpu::Extent3d {
@@ -136,19 +137,20 @@ impl Renderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
-        texture.create_view(&wgpu::TextureViewDescriptor::default())
+
+        self.depth_view = Some(texture.create_view(&wgpu::TextureViewDescriptor::default()));
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, width: u32, height: u32) {
         if let (Some(surface), Some(config)) = (&mut self.surface, &mut self.surface_config)
-            && new_size.width > 0
-            && new_size.height > 0
+            && width > 0
+            && height > 0
         {
-            config.width = new_size.width;
-            config.height = new_size.height;
+            config.width = width;
+            config.height = height;
             surface.configure(&self.device, config);
 
-            self.depth_texture = Some(self.create_depth_texture(new_size.width, new_size.height));
+            self.create_depth_texture(width, height);
         }
     }
 
