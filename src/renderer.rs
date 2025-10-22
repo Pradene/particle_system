@@ -140,7 +140,7 @@ impl Renderer {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        if let (Some(surface), Some(config)) = (&self.surface, &mut self.surface_config)
+        if let (Some(surface), Some(config)) = (&mut self.surface, &mut self.surface_config)
             && new_size.width > 0
             && new_size.height > 0
         {

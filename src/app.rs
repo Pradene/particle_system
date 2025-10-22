@@ -3,7 +3,8 @@ use {
         camera::Camera,
         input_handler::InputHandler,
         particle_system::{
-            ParticleEmissionMode, ParticleSystem, ParticleSystemInfo, UpdateUniforms,
+            ParticleEmissionMode, ParticleEmissionShape, ParticleSystem, ParticleSystemInfo,
+            UpdateUniforms,
         },
         renderer::Renderer,
         timer::Timer,
@@ -81,7 +82,7 @@ impl ApplicationHandler for App {
             width as f32 / height as f32,
             (120.0f32).to_radians(),
             0.1,
-            100.0,
+            1000.0,
         );
 
         let surface_format = if let Some(surface_format) = renderer.surface_format() {
@@ -95,7 +96,9 @@ impl ApplicationHandler for App {
             renderer.device(),
             surface_format,
             ParticleSystemInfo {
-                emission_mode: ParticleEmissionMode::Burst(1000000),
+                position: glam::Vec3::ZERO,
+                shape: ParticleEmissionShape::Sphere,
+                mode: ParticleEmissionMode::Burst(1000000),
                 lifetime: f32::INFINITY,
             },
         );

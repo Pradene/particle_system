@@ -19,7 +19,9 @@ impl Timer {
     pub fn tick(&mut self) -> f32 {
         let current_time = Instant::now();
         let delta_time = current_time.duration_since(self.last_frame).as_secs_f32();
+
         self.last_frame = current_time;
+
         delta_time
     }
 }

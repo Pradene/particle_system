@@ -1,14 +1,16 @@
+struct EmitUniforms {
+    position: vec4<f32>,
+    count: u32,
+    shape: u32,
+    lifetime: f32,
+    elapsed_time: f32,
+}
+
 struct Particle {
     position: vec4<f32>,
     velocity: vec4<f32>,
     color: vec4<f32>,
     mass: f32,
-    lifetime: f32,
-}
-
-struct EmitUniforms {
-    count: u32,
-    elapsed_time: f32,
     lifetime: f32,
 }
 
@@ -49,6 +51,22 @@ fn random_on_sphere(state: ptr<function, u32>) -> vec3<f32> {
     return vec3<f32>(x, y, z);
 }
 
+fn random_on_cube(state: ptr<function, u32>) -> vec3<f32> {
+    let face = u32(random_float(state) * 6.0);
+    let u = random_float(state) * 2.0 - 1.0;
+    let v = random_float(state) * 2.0 - 1.0;
+
+    switch (face) {
+        case 0u: { return vec3<f32>( 1.0,    u,    v); } // +X
+        case 1u: { return vec3<f32>(-1.0,    u,    v); } // -X
+        case 2u: { return vec3<f32>(   u,  1.0,    v); } // +Y
+        case 3u: { return vec3<f32>(   u, -1.0,    v); } // -Y
+        case 4u: { return vec3<f32>(   u,    v,  1.0); } // +Z
+        case 5u: { return vec3<f32>(   u,    v, -1.0); } // -Z
+        default: { return vec3<f32>( 0.0,  0.0,  0.0); }
+    }
+}
+
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
@@ -63,23 +81,26 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var seed = hash(hash(write_index) ^ (bitcast<u32>(uniforms.elapsed_time) * 7919u));
 
-    let min_radius = 8.0;
-    let max_radius = 12.0;
-    let radius = random_range(&seed, min_radius, max_radius);
-
-    let direction = random_on_sphere(&seed);
-    let position = vec4(direction * radius, 1.0);
+    let scale = 8.0;
+    var vector = vec3(0.0, 0.0, 0.0);
+    if (uniforms.shape == 0u) {
+        vector = vec3(0.0, 0.0, 0.0);
+    } else if (uniforms.shape == 1u) {
+        vector = random_on_sphere(&seed) * scale;
+    } else if (uniforms.shape == 2u) {
+        vector = random_on_cube(&seed) * scale;
+    }
 
     let gravitational_constant = 10.0;
-    let orbital_speed = sqrt(gravitational_constant / radius);
+    let orbital_speed = sqrt(gravitational_constant / scale);
 
     let up = vec3<f32>(0.0, 1.0, 0.0);
-    let tangent = normalize(cross(direction, up));
+    let tangent = normalize(cross(vector, up));
 
     let velocity = vec4(tangent * orbital_speed, 0.0);
     let color = vec4(1.0, 0.75, 0.80, 0.2);
 
-    particles[write_index].position = position;
+    particles[write_index].position = uniforms.position + vec4(vector, 0.0);
     particles[write_index].velocity = velocity;
     particles[write_index].color = color;
     particles[write_index].mass = 1.0;

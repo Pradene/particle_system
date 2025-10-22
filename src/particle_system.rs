@@ -14,13 +14,21 @@ pub struct Particle {
     pub padding: [f32; 2],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ParticleEmissionShape {
+    Point,
+    Sphere,
+    Cube,
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct EmitUniforms {
+    pub position: [f32; 4],
     pub count: u32,
-    pub elapsed_time: f32,
+    pub shape: u32,
     pub lifetime: f32,
-    pub padding: [f32; 1],
+    pub elapsed_time: f32,
 }
 
 #[repr(C, align(16))]
@@ -52,7 +60,9 @@ pub enum SimulationState {
 }
 
 pub struct ParticleSystemInfo {
-    pub emission_mode: ParticleEmissionMode,
+    pub position: glam::Vec3,
+    pub mode: ParticleEmissionMode,
+    pub shape: ParticleEmissionShape,
     pub lifetime: f32,
 }
 
@@ -77,7 +87,9 @@ pub struct ParticleSystem {
     render_pipeline: wgpu::RenderPipeline,
     render_bind_groups: [wgpu::BindGroup; 2],
 
+    position: glam::Vec3,
     emission_mode: ParticleEmissionMode,
+    emission_shape: ParticleEmissionShape,
     lifetime: f32,
     accumulated_emit: u32,
 
@@ -91,7 +103,7 @@ impl ParticleSystem {
         surface_format: wgpu::TextureFormat,
         info: ParticleSystemInfo,
     ) -> Self {
-        let max_particles = match info.emission_mode {
+        let max_particles = match info.mode {
             ParticleEmissionMode::Burst(count) => count,
             ParticleEmissionMode::Continuous(rate) => rate * info.lifetime.ceil() as u32,
         };
@@ -138,7 +150,9 @@ impl ParticleSystem {
             update_bind_groups,
             render_pipeline,
             render_bind_groups,
-            emission_mode: info.emission_mode,
+            position: info.position,
+            emission_mode: info.mode,
+            emission_shape: info.shape,
             lifetime: info.lifetime,
             accumulated_emit: 0,
             state: SimulationState::Playing,
@@ -678,10 +692,11 @@ impl ParticleSystem {
 
     fn emit_particles(&mut self, frame: &mut RenderContext, actual_emit: u32) {
         let emit_uniforms = EmitUniforms {
+            position: self.position.extend(1.0).to_array(),
             count: actual_emit,
-            elapsed_time: self.elapsed_time(),
             lifetime: self.lifetime,
-            padding: [0.0; 1],
+            shape: self.emission_shape as u32,
+            elapsed_time: self.elapsed_time(),
         };
 
         frame.queue().write_buffer(
