@@ -60,7 +60,7 @@ impl ApplicationHandler for App {
             }
         };
 
-        let mut renderer = match pollster::block_on(Renderer::new()) {
+        let renderer = match pollster::block_on(Renderer::new(window.clone())) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Failed to create renderer: {e}");
@@ -68,12 +68,6 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-
-        if let Err(e) = renderer.create_surface(window.clone()) {
-            eprintln!("Failed to create surface: {e}");
-            event_loop.exit();
-            return;
-        }
 
         self.camera = Camera::new(
             glam::vec3(0.0, 0.0, 20.0),
