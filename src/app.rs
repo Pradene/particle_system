@@ -21,6 +21,12 @@ use {
 };
 
 #[derive(Default)]
+struct Parameters {
+    sensitivity: f32,
+    move_speed: f32,
+}
+
+#[derive(Default)]
 pub struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
@@ -28,13 +34,17 @@ pub struct App {
     timer: Timer,
     particle_system: Option<ParticleSystem>,
     input_handler: InputHandler,
+    parameters: Parameters,
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let width = 1080;
+        let height = 720;
+
         let window_attributes = Window::default_attributes()
             .with_title("Particle System")
-            .with_inner_size(PhysicalSize::new(1080, 720))
+            .with_inner_size(PhysicalSize::new(width, height))
             .with_resizable(true);
 
         let window = match event_loop.create_window(window_attributes) {
@@ -67,7 +77,8 @@ impl ApplicationHandler for App {
         self.camera = Camera::new(
             glam::vec3(0.0, 0.0, 20.0),
             glam::vec3(0.0, 0.0, 0.0),
-            1080.0 / 720.0,
+            glam::vec3(0.0, 1.0, 0.0),
+            width as f32 / height as f32,
             (120.0f32).to_radians(),
             0.1,
             100.0,
@@ -89,17 +100,24 @@ impl ApplicationHandler for App {
             },
         );
 
+        let parameters = Parameters {
+            sensitivity: 0.002,
+            move_speed: 10.0,
+        };
+
         self.particle_system = Some(particle_system);
         self.window = Some(window);
         self.renderer = Some(renderer);
+
+        self.parameters = parameters;
         self.input_handler = InputHandler::new();
         self.timer = Timer::new();
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
-            let sensitivity = 0.002;
-            let (x, y) = (dx as f32 * sensitivity, dy as f32 * sensitivity);
+            let scale = self.parameters.sensitivity;
+            let (x, y) = (dx as f32 * scale, dy as f32 * scale);
             self.camera.rotate(x, y);
 
             // Reset cursor to center
@@ -202,7 +220,7 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 let delta_time = self.timer.tick();
 
-                let speed = 5.0;
+                let speed = self.parameters.move_speed;
                 let scale = speed * delta_time;
 
                 if self.input_handler.is_key_pressed(KeyCode::KeyW) {

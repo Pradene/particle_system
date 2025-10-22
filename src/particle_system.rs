@@ -115,8 +115,12 @@ impl ParticleSystem {
         let (update_pipeline, update_bind_groups) =
             Self::create_update_pipeline(device, &particles_buffers, &update_uniforms_buffer);
 
-        let (render_pipeline, render_bind_groups) =
-            Self::create_render_pipeline(device, surface_format, &particles_buffers, &render_uniforms_buffer);
+        let (render_pipeline, render_bind_groups) = Self::create_render_pipeline(
+            device,
+            surface_format,
+            &particles_buffers,
+            &render_uniforms_buffer,
+        );
 
         Self {
             particles_count: 0,
@@ -578,7 +582,7 @@ impl ParticleSystem {
                         resource: particles_buffers[1].as_entire_binding(),
                     },
                 ],
-            })
+            }),
         ];
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -632,11 +636,7 @@ impl ParticleSystem {
         (render_pipeline, bind_groups)
     }
 
-    fn update_particles(
-        &mut self,
-        frame: &mut RenderContext,
-        uniforms: UpdateUniforms,
-    ) {
+    fn update_particles(&mut self, frame: &mut RenderContext, uniforms: UpdateUniforms) {
         frame.queue().write_buffer(
             &self.update_uniforms_buffer,
             0,
@@ -658,7 +658,9 @@ impl ParticleSystem {
     }
 
     fn compact_particles(&mut self, frame: &mut RenderContext) {
-        frame.queue().write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
+        frame
+            .queue()
+            .write_buffer(&self.compact_buffer, 0, bytemuck::cast_slice(&[0u32]));
 
         let mut pass = frame
             .encoder_mut()
@@ -735,11 +737,7 @@ impl ParticleSystem {
         render_pass.draw(0..1, 0..self.particles_count);
     }
 
-    pub fn update(
-        &mut self,
-        frame: &mut RenderContext,
-        uniforms: UpdateUniforms,
-    ) {
+    pub fn update(&mut self, frame: &mut RenderContext, uniforms: UpdateUniforms) {
         if self.is_paused() {
             return;
         }

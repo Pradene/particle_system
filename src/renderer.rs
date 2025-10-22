@@ -1,4 +1,4 @@
-use {std::{sync::Arc}, winit::window::Window};
+use {std::sync::Arc, winit::window::Window};
 
 pub struct Renderer {
     instance: wgpu::Instance,
