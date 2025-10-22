@@ -154,10 +154,12 @@ impl ApplicationHandler for App {
                 event_loop.exit();
             }
             WindowEvent::Resized(physical_size) => {
-                self.camera
-                    .resize(physical_size.width, physical_size.height);
+                let width = physical_size.width;
+                let height = physical_size.height;
+                
+                self.camera.resize(width, height);
                 if let Some(renderer) = &mut self.renderer {
-                    renderer.resize(physical_size);
+                    renderer.resize(width, height);
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
