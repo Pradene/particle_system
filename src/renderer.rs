@@ -5,10 +5,10 @@ pub struct Renderer {
     adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    surface: Option<wgpu::Surface<'static>>,
-    surface_config: Option<wgpu::SurfaceConfiguration>,
-    depth_texture: Option<wgpu::TextureView>,
-    window: Option<Arc<Window>>,
+    surface: wgpu::Surface<'static>,
+    surface_config: wgpu::SurfaceConfiguration,
+    depth_texture: wgpu::TextureView,
+    window: Arc<Window>,
 }
 
 #[derive(Debug)]
@@ -31,7 +31,7 @@ impl std::fmt::Display for RendererError {
 impl std::error::Error for RendererError {}
 
 impl Renderer {
-    pub async fn new() -> Result<Self, RendererError> {
+    pub async fn new(window: Arc<Window>) -> Result<Self, RendererError> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
@@ -60,25 +60,11 @@ impl Renderer {
             .await
             .map_err(|_| RendererError::DeviceRequestFailed)?;
 
-        Ok(Self {
-            instance,
-            adapter,
-            device,
-            queue,
-            surface: None,
-            surface_config: None,
-            depth_texture: None,
-            window: None,
-        })
-    }
-
-    pub fn create_surface(&mut self, window: Arc<Window>) -> Result<(), RendererError> {
-        let surface = self
-            .instance
+        let surface = instance
             .create_surface(window.clone())
             .map_err(|_| RendererError::SurfaceCreationFailed)?;
-
-        let surface_caps = surface.get_capabilities(&self.adapter);
+            
+        let surface_caps = surface.get_capabilities(&adapter);
 
         let present_mode = wgpu::PresentMode::AutoVsync;
 
@@ -96,7 +82,7 @@ impl Renderer {
             });
 
         let size = window.clone().inner_size();
-        let config = wgpu::SurfaceConfiguration {
+        let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: size.width,
@@ -111,19 +97,24 @@ impl Renderer {
             desired_maximum_frame_latency: 2,
         };
 
-        surface.configure(&self.device, &config);
+        surface.configure(&device, &surface_config);
 
-        self.create_depth_texture(size.width, size.height);
+        let depth_texture = Self::create_depth_texture(&device, size.width, size.height);
 
-        self.window = Some(window);
-        self.surface = Some(surface);
-        self.surface_config = Some(config);
-
-        Ok(())
+        Ok(Self {
+            instance,
+            adapter,
+            device,
+            queue,
+            surface,
+            surface_config,
+            depth_texture,
+            window,
+        })
     }
 
-    fn create_depth_texture(&mut self, width: u32, height: u32) {
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+    fn create_depth_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Depth Texture"),
             size: wgpu::Extent3d {
                 width,
@@ -138,19 +129,16 @@ impl Renderer {
             view_formats: &[],
         });
 
-        self.depth_view = Some(texture.create_view(&wgpu::TextureViewDescriptor::default()));
+        texture.create_view(&wgpu::TextureViewDescriptor::default());
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        if let (Some(surface), Some(config)) = (&mut self.surface, &mut self.surface_config)
-            && width > 0
-            && height > 0
-        {
-            config.width = width;
-            config.height = height;
-            surface.configure(&self.device, config);
+        if let width > 0 && height > 0 {
+            self.surface_config.width = width;
+            self.surface_config.height = height;
+            self.surface.configure(&self.device, &self.surface_config);
 
-            self.create_depth_texture(width, height);
+            self.depth_texture = Self::create_depth_texture(&self.device, width, height);
         }
     }
 
