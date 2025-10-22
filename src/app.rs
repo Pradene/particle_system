@@ -265,10 +265,7 @@ impl ApplicationHandler for App {
                             renderer.end_frame(frame);
                         }
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            let size = window.inner_size();
-                            if let Some(renderer) = &mut self.renderer {
-                                renderer.resize(size);
-                            }
+                            renderer.resize(window.inner_size());
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {
                             event_loop.exit();
