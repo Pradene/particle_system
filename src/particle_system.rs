@@ -14,6 +14,7 @@ pub struct Particle {
     pub padding: [f32; 2],
 }
 
+#[allow(unused)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ParticleEmissionShape {
     Point,

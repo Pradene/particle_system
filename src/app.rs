@@ -79,12 +79,7 @@ impl ApplicationHandler for App {
             1000.0,
         );
 
-        let surface_format = if let Some(surface_format) = renderer.surface_format() {
-            surface_format
-        } else {
-            event_loop.exit();
-            return;
-        };
+        let surface_format = renderer.surface_format();
 
         let particle_system = ParticleSystem::new(
             renderer.device(),
@@ -150,7 +145,7 @@ impl ApplicationHandler for App {
             WindowEvent::Resized(physical_size) => {
                 let width = physical_size.width;
                 let height = physical_size.height;
-                
+
                 self.camera.resize(width, height);
                 if let Some(renderer) = &mut self.renderer {
                     renderer.resize(width, height);
@@ -191,7 +186,7 @@ impl ApplicationHandler for App {
 
                                 if let Some(renderer) = &mut self.renderer {
                                     let size = window.inner_size();
-                                    renderer.resize(size);
+                                    renderer.resize(size.width, size.height);
                                 }
                             }
                         }
@@ -261,7 +256,8 @@ impl ApplicationHandler for App {
                             renderer.end_frame(frame);
                         }
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            renderer.resize(window.inner_size());
+                            let size = window.inner_size();
+                            renderer.resize(size.width, size.height);
                         }
                         Err(wgpu::SurfaceError::OutOfMemory) => {
                             event_loop.exit();

@@ -1,6 +1,7 @@
 use {std::sync::Arc, winit::window::Window};
 
 pub struct Renderer {
+    window: Arc<Window>,
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
     device: wgpu::Device,
@@ -8,7 +9,6 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
     depth_texture: wgpu::TextureView,
-    window: Arc<Window>,
 }
 
 #[derive(Debug)]
@@ -63,7 +63,7 @@ impl Renderer {
         let surface = instance
             .create_surface(window.clone())
             .map_err(|_| RendererError::SurfaceCreationFailed)?;
-            
+
         let surface_caps = surface.get_capabilities(&adapter);
 
         let present_mode = wgpu::PresentMode::AutoVsync;
@@ -129,25 +129,24 @@ impl Renderer {
             view_formats: &[],
         });
 
-        texture.create_view(&wgpu::TextureViewDescriptor::default());
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        if let width > 0 && height > 0 {
-            self.surface_config.width = width;
-            self.surface_config.height = height;
-            self.surface.configure(&self.device, &self.surface_config);
-
-            self.depth_texture = Self::create_depth_texture(&self.device, width, height);
+        if width == 0 || height == 0 {
+            return;
         }
+
+        self.surface_config.width = width;
+        self.surface_config.height = height;
+        self.surface.configure(&self.device, &self.surface_config);
+
+        self.depth_texture = Self::create_depth_texture(&self.device, width, height);
     }
 
     pub fn begin_frame(&self) -> Result<RenderContext<'_>, wgpu::SurfaceError> {
-        let surface = self.surface.as_ref().ok_or(wgpu::SurfaceError::Lost)?;
-        let depth_view = self
-            .depth_texture
-            .as_ref()
-            .ok_or(wgpu::SurfaceError::Lost)?;
+        let surface = &self.surface;
+        let depth_view = &self.depth_texture;
 
         let output = surface.get_current_texture()?;
         let view = output
@@ -160,7 +159,7 @@ impl Renderer {
                 label: Some("Main Encoder"),
             });
 
-        let queue = self.queue();
+        let queue = &self.queue;
 
         Ok(RenderContext {
             output,
@@ -188,8 +187,8 @@ impl Renderer {
         &self.queue
     }
 
-    pub fn surface_format(&self) -> Option<wgpu::TextureFormat> {
-        self.surface_config.as_ref().map(|c| c.format)
+    pub fn surface_format(&self) -> wgpu::TextureFormat {
+        self.surface_config.format
     }
 }
 
