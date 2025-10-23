@@ -88,7 +88,7 @@ impl ApplicationHandler for App {
                 position: glam::Vec3::ZERO,
                 shape: ParticleEmissionShape::Sphere,
                 mode: ParticleEmissionMode::Burst(1000000),
-                lifetime: f32::INFINITY,
+                lifetime: 12.0,
             },
         );
 

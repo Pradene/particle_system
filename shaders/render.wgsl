@@ -1,6 +1,7 @@
 struct RenderUniforms {
     view_proj: mat4x4<f32>,
-    color: vec4<f32>,
+    color_start: vec4<f32>,
+    color_end: vec4<f32>,
 }
 
 struct Particle {
@@ -8,6 +9,7 @@ struct Particle {
     velocity: vec4<f32>,
     mass: f32,
     lifetime: f32,
+    age: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: RenderUniforms;
@@ -25,7 +27,7 @@ fn vs_main(@builtin(instance_index) instance_index: u32) -> VertexOutput {
     var out: VertexOutput;
     
     out.clip_position = uniforms.view_proj * particle.position;
-    out.color = uniforms.color;
+    out.color = uniforms.color_start + (uniforms.color_end - uniforms.color_start) * (particle.age / particle.lifetime);
     
     return out;
 }

@@ -9,6 +9,7 @@ struct Particle {
     velocity: vec4<f32>,
     mass: f32,
     lifetime: f32,
+    age: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: UpdateUniforms;
@@ -44,12 +45,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let velocity = particle.velocity + acceleration * dt;
     let position = particle.position + velocity * dt;
     let mass = particle.mass;
-    let lifetime = particle.lifetime - dt;
-
+    let lifetime = particle.lifetime;
+    let age = particle.age + dt;
 
     // Write to output buffer
     particles_out[index].position = position;
     particles_out[index].velocity = velocity;
     particles_out[index].mass = mass;
     particles_out[index].lifetime = lifetime;
+    particles_out[index].age = age;
 }

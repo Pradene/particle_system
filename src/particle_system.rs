@@ -10,7 +10,8 @@ pub struct Particle {
     pub velocity: [f32; 4],
     pub mass: f32,
     pub lifetime: f32,
-    pub padding: [f32; 2],
+    pub age: f32,
+    pub padding: [f32; 1],
 }
 
 #[allow(unused)]
@@ -44,7 +45,8 @@ pub struct UpdateUniforms {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RenderUniforms {
     pub view_proj: [[f32; 4]; 4],
-    pub color: [f32; 4],
+    pub color_start: [f32; 4],
+    pub color_end: [f32; 4],
 }
 
 #[allow(unused)]
@@ -784,7 +786,8 @@ impl ParticleSystem {
     pub fn render(&self, frame: &mut RenderContext, camera: &Camera) {
         let uniforms = RenderUniforms {
             view_proj: camera.view_proj().to_cols_array_2d(),
-            color: [1.0, 0.75, 0.8, 0.1],
+            color_start: [1.0, 0.0, 0.0, 0.1],
+            color_end: [0.0, 0.0, 1.0, 0.1],
         };
 
         frame.queue().write_buffer(

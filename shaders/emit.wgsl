@@ -11,6 +11,7 @@ struct Particle {
     velocity: vec4<f32>,
     mass: f32,
     lifetime: f32,
+    age: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: EmitUniforms;
@@ -102,4 +103,5 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     particles[write_index].velocity = velocity;
     particles[write_index].mass = 1.0;
     particles[write_index].lifetime = uniforms.lifetime;
+    particles[write_index].age = 0.0;
 }

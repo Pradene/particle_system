@@ -3,6 +3,7 @@ struct Particle {
     velocity: vec4<f32>,
     mass: f32,
     lifetime: f32,
+    age: f32,
 }
 
 @group(0) @binding(0) var<storage, read> particles_in: array<Particle>;
@@ -17,8 +18,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     let particle = particles_in[index];
-    
-    if (particle.lifetime > 0.0) {
+
+    if (particle.age < particle.lifetime) {
         let write_index = atomicAdd(&particle_count, 1u);
         
         if (write_index < arrayLength(&particles_out)) {
