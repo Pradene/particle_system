@@ -9,7 +9,6 @@ struct EmitUniforms {
 struct Particle {
     position: vec4<f32>,
     velocity: vec4<f32>,
-    color: vec4<f32>,
     mass: f32,
     lifetime: f32,
 }
@@ -98,11 +97,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let tangent = normalize(cross(vector, up));
 
     let velocity = vec4(tangent * orbital_speed, 0.0);
-    let color = vec4(1.0, 0.75, 0.80, 0.2);
 
     particles[write_index].position = uniforms.position + vec4(vector, 0.0);
     particles[write_index].velocity = velocity;
-    particles[write_index].color = color;
     particles[write_index].mass = 1.0;
     particles[write_index].lifetime = uniforms.lifetime;
 }

@@ -8,7 +8,6 @@ use {
 pub struct Particle {
     pub position: [f32; 4],
     pub velocity: [f32; 4],
-    pub color: [f32; 4],
     pub mass: f32,
     pub lifetime: f32,
     pub padding: [f32; 2],
@@ -45,6 +44,7 @@ pub struct UpdateUniforms {
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RenderUniforms {
     pub view_proj: [[f32; 4]; 4],
+    pub color: [f32; 4],
 }
 
 #[allow(unused)]
@@ -92,7 +92,6 @@ pub struct ParticleSystem {
     emission_mode: ParticleEmissionMode,
     emission_shape: ParticleEmissionShape,
     lifetime: f32,
-    accumulated_emit: u32,
 
     state: SimulationState,
     start_time: Instant,
@@ -155,7 +154,6 @@ impl ParticleSystem {
             emission_mode: info.mode,
             emission_shape: info.shape,
             lifetime: info.lifetime,
-            accumulated_emit: 0,
             state: SimulationState::Playing,
             start_time: Instant::now(),
         }
@@ -758,21 +756,17 @@ impl ParticleSystem {
             return;
         }
 
-        let delta_time = uniforms.delta_time;
-
-        self.accumulated_emit += match self.emission_mode {
-            ParticleEmissionMode::Continuous(rate) => (rate as f32 * delta_time) as u32,
-            ParticleEmissionMode::Burst(count) => count,
-        };
-
         self.compact_particles(frame);
-
         self.update_particles(frame, uniforms);
         self.swap_buffer();
     }
 
     pub fn emit(&mut self, frame: &mut RenderContext) {
-        let particles_to_emit = self.accumulated_emit;
+        let particles_to_emit = match self.emission_mode {
+            ParticleEmissionMode::Continuous(rate) => (rate as f32 * 0.16) as u32,
+            ParticleEmissionMode::Burst(count) => count,
+        };
+
         if particles_to_emit == 0 {
             return;
         }
@@ -783,7 +777,6 @@ impl ParticleSystem {
 
         if actual_emit > 0 {
             self.emit_particles(frame, actual_emit);
-            self.accumulated_emit -= actual_emit;
             self.particles_count += actual_emit;
         }
     }
@@ -791,6 +784,7 @@ impl ParticleSystem {
     pub fn render(&self, frame: &mut RenderContext, camera: &Camera) {
         let uniforms = RenderUniforms {
             view_proj: camera.view_proj().to_cols_array_2d(),
+            color: [1.0, 0.75, 0.8, 0.1],
         };
 
         frame.queue().write_buffer(
@@ -816,7 +810,6 @@ impl ParticleSystem {
 
     pub fn restart(&mut self, queue: &wgpu::Queue) {
         self.particles_count = 0;
-        self.accumulated_emit = 0;
         self.start_time = Instant::now();
         self.state = SimulationState::Playing;
 

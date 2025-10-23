@@ -1,7 +1,6 @@
 struct Particle {
     position: vec4<f32>,
     velocity: vec4<f32>,
-    color: vec4<f32>,
     mass: f32,
     lifetime: f32,
 }

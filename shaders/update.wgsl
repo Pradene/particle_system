@@ -1,15 +1,14 @@
-struct Particle {
-    position: vec4<f32>,
-    velocity: vec4<f32>,
-    color: vec4<f32>,
-    mass: f32,
-    lifetime: f32,
-}
-
 struct UpdateUniforms {
     gravity_center: vec4<f32>,
     elapsed_time: f32,
     delta_time: f32,
+}
+
+struct Particle {
+    position: vec4<f32>,
+    velocity: vec4<f32>,
+    mass: f32,
+    lifetime: f32,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: UpdateUniforms;
@@ -42,16 +41,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let acceleration = direction * force_magnitude;
 
     // Update velocity and position
-    var new_velocity = particle.velocity + acceleration * dt;
-    var new_position = particle.position + new_velocity * dt;
-    var new_mass = particle.mass;
+    let velocity = particle.velocity + acceleration * dt;
+    let position = particle.position + velocity * dt;
+    let mass = particle.mass;
+    let lifetime = particle.lifetime - dt;
 
-    var new_color = vec4(particle.color.rgb, 0.3 - min(distance * 0.02, 0.2));
 
     // Write to output buffer
-    particles_out[index].position = new_position;
-    particles_out[index].velocity = new_velocity;
-    particles_out[index].color = new_color;
-    particles_out[index].mass = new_mass;
-    particles_out[index].lifetime = particle.lifetime - dt;
+    particles_out[index].position = position;
+    particles_out[index].velocity = velocity;
+    particles_out[index].mass = mass;
+    particles_out[index].lifetime = lifetime;
 }
