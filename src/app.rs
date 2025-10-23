@@ -93,7 +93,7 @@ impl ApplicationHandler for App {
         );
 
         let parameters = Parameters {
-            sensitivity: 0.002,
+            sensitivity: 1.0,
             move_speed: 10.0,
         };
 
@@ -108,13 +108,15 @@ impl ApplicationHandler for App {
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
-            let scale = self.parameters.sensitivity;
-            let (x, y) = (dx as f32 * scale, dy as f32 * scale);
-            self.camera.rotate(x, y);
-
-            // Reset cursor to center
             if let Some(window) = &self.window {
                 let size = window.inner_size();
+
+                let x = (dx as f32 / size.width as f32) * self.parameters.sensitivity;
+                let y = (dy as f32 / size.height as f32) * self.parameters.sensitivity;
+
+                self.camera.rotate(x, y);
+
+                // Reset cursor to center
                 let center = PhysicalPosition::new(size.width / 2, size.height / 2);
                 if let Err(e) = window.set_cursor_position(center) {
                     eprintln!("Failed to set cursor position: {e:?}");
