@@ -25,10 +25,10 @@ fn vs_main(@builtin(instance_index) instance_index: u32) -> VertexOutput {
     let particle = particles[instance_index];
 
     var out: VertexOutput;
-    
+
     out.clip_position = uniforms.view_proj * particle.position;
     out.color = uniforms.color_start + (uniforms.color_end - uniforms.color_start) * (particle.age / particle.lifetime);
-    
+
     return out;
 }
 

@@ -16,7 +16,7 @@ struct Particle {
 
 @group(0) @binding(0) var<uniform> uniforms: EmitUniforms;
 @group(0) @binding(1) var<storage, read_write> particles: array<Particle>;
-@group(0) @binding(2) var<storage, read_write> particle_count: atomic<u32>;
+@group(0) @binding(2) var<storage, read_write> indirect_buffer: array<atomic<u32>>;
 
 fn hash(x: u32) -> u32 {
     var s = x;
@@ -74,12 +74,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let write_index = atomicAdd(&particle_count, 1u);
+    let write_index = atomicAdd(&indirect_buffer[1], 1u);
     if (write_index >= arrayLength(&particles)) {
         return;
     }
 
-    var seed = hash(hash(write_index) ^ (bitcast<u32>(uniforms.elapsed_time) * 7919u));
+    var seed = hash(hash(write_index) ^ (bitcast<u32>(uniforms.elapsed_time)));
 
     let scale = 8.0;
     var vector = vec3(0.0, 0.0, 0.0);
