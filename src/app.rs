@@ -4,7 +4,7 @@ use {
         input_handler::InputHandler,
         particle_system::{
             ParticleEmissionMode, ParticleEmissionShape, ParticleSystem, ParticleSystemInfo,
-            UpdateUniforms,
+            RenderUniforms, UpdateUniforms,
         },
         renderer::Renderer,
         timer::Timer,
@@ -88,7 +88,7 @@ impl ApplicationHandler for App {
                 position: glam::Vec3::ZERO,
                 shape: ParticleEmissionShape::Sphere,
                 mode: ParticleEmissionMode::Burst(100000),
-                lifetime: 12.0,
+                lifetime: f32::INFINITY,
             },
         );
 
@@ -239,20 +239,29 @@ impl ApplicationHandler for App {
                     match renderer.begin_frame() {
                         Ok(mut frame) => {
                             if let Some(particle_system) = &mut self.particle_system {
-                                let gravity_center = (self.camera.position()
-                                    + self.camera.forward() * 20.0)
-                                    .extend(1.0)
-                                    .to_array();
-                                let uniforms = UpdateUniforms {
-                                    gravity_center,
-                                    elapsed_time: particle_system.elapsed_time(),
-                                    delta_time,
-                                    padding: [0.0; 2],
-                                };
+                                particle_system.set_update_uniforms(
+                                    &mut frame,
+                                    UpdateUniforms {
+                                        gravity_center: (self.camera.position()
+                                            + self.camera.forward() * 20.0)
+                                            .extend(1.0)
+                                            .to_array(),
+                                        elapsed_time: particle_system.elapsed_time(),
+                                        delta_time,
+                                        padding: [0.0; 2],
+                                    },
+                                );
 
-                                particle_system.update(&mut frame, uniforms);
-                                particle_system.emit(&mut frame);
-                                particle_system.render(&mut frame, &self.camera);
+                                particle_system.set_render_uniforms(
+                                    &mut frame,
+                                    RenderUniforms {
+                                        view_proj: self.camera.view_proj().to_cols_array_2d(),
+                                        color_start: [1.0, 0.0, 0.0, 0.2],
+                                        color_end: [0.0, 0.0, 1.0, 0.2],
+                                    },
+                                );
+
+                                particle_system.update(&mut frame);
                             }
 
                             renderer.end_frame(frame);

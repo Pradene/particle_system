@@ -1,7 +1,4 @@
-use {
-    crate::{camera::Camera, renderer::RenderContext},
-    std::time::Instant, wgpu::wgt::DrawIndirectArgs,
-};
+use {crate::renderer::RenderContext, std::time::Instant, wgpu::wgt::DrawIndirectArgs};
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -70,8 +67,7 @@ pub struct ParticleSystemInfo {
 }
 
 pub struct ParticleSystem {
-    max_particles: u32,
-
+    particles_buffers: [wgpu::Buffer; 2],
     // Uniforms
     update_uniforms_buffer: wgpu::Buffer,
     render_uniforms_buffer: wgpu::Buffer,
@@ -88,6 +84,7 @@ pub struct ParticleSystem {
     render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
 
+    max_particles: u32,
     position: glam::Vec3,
     emission_mode: ParticleEmissionMode,
     emission_shape: ParticleEmissionShape,
@@ -136,6 +133,7 @@ impl ParticleSystem {
         );
 
         Self {
+            particles_buffers,
             max_particles,
             compact_uniforms_buffer,
             update_uniforms_buffer,
@@ -573,13 +571,7 @@ impl ParticleSystem {
         (render_pipeline, bind_group)
     }
 
-    fn update_particles(&mut self, context: &mut RenderContext, uniforms: UpdateUniforms) {
-        context.queue().write_buffer(
-            &self.update_uniforms_buffer,
-            0,
-            bytemuck::cast_slice(&[uniforms]),
-        );
-
+    fn update_particles(&mut self, context: &mut RenderContext) {
         let mut pass = context
             .encoder_mut()
             .begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -621,10 +613,19 @@ impl ParticleSystem {
         drop(pass);
     }
 
-    fn emit_particles(&mut self, context: &mut RenderContext, actual_emit: u32) {
+    fn emit_particles(&mut self, context: &mut RenderContext) {
+        let count = match self.emission_mode {
+            ParticleEmissionMode::Continuous(rate) => (rate as f32 * 0.016) as u32,
+            ParticleEmissionMode::Burst(count) => count,
+        };
+
+        if count == 0 {
+            return;
+        }
+
         let emit_uniforms = EmitUniforms {
             position: self.position.extend(1.0).to_array(),
-            count: actual_emit,
+            count,
             lifetime: self.lifetime,
             shape: self.emission_shape as u32,
             elapsed_time: self.elapsed_time(),
@@ -645,7 +646,7 @@ impl ParticleSystem {
 
         pass.set_pipeline(&self.emit_pipeline);
         pass.set_bind_group(0, &self.emit_bind_group, &[]);
-        pass.dispatch_workgroups(actual_emit.div_ceil(256), 1, 1);
+        pass.dispatch_workgroups(count.div_ceil(256), 1, 1);
 
         drop(pass);
     }
@@ -653,73 +654,60 @@ impl ParticleSystem {
     fn render_particles(&self, context: &mut RenderContext) {
         let view = context.view().clone();
         let depth_view = context.depth_view().clone();
-        let mut pass =
-            context
-                .encoder_mut()
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Render Pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        depth_slice: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                        view: &depth_view,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(1.0),
-                            store: wgpu::StoreOp::Store,
-                        }),
-                        stencil_ops: None,
+        let mut pass = context
+            .encoder_mut()
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    depth_slice: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
                     }),
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
-                });
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
 
         pass.set_pipeline(&self.render_pipeline);
         pass.set_bind_group(0, &self.render_bind_group, &[]);
         pass.draw_indirect(&self.compact_uniforms_buffer, 0);
     }
 
-    pub fn update(&mut self, context: &mut RenderContext, uniforms: UpdateUniforms) {
-        if self.is_paused() {
-            return;
+    pub fn update(&mut self, context: &mut RenderContext) {
+        if self.is_paused() == false {
+            self.compact_particles(context);
+            self.update_particles(context);
+            self.emit_particles(context);
         }
 
-        self.compact_particles(context);
-        self.update_particles(context, uniforms);
+        self.render_particles(context);
     }
 
-    pub fn emit(&mut self, context: &mut RenderContext) {
-        let particles_to_emit = match self.emission_mode {
-            ParticleEmissionMode::Continuous(rate) => (rate as f32 * 0.016) as u32, // Fixed: 0.016 not 0.16
-            ParticleEmissionMode::Burst(count) => count,
-        };
-
-        if particles_to_emit == 0 {
-            return;
-        }
-
-        self.emit_particles(context, particles_to_emit);
-    }
-
-    pub fn render(&mut self, context: &mut RenderContext, camera: &Camera) {
-        let uniforms = RenderUniforms {
-            view_proj: camera.view_proj().to_cols_array_2d(),
-            color_start: [1.0, 0.0, 0.0, 0.4],
-            color_end: [0.0, 0.0, 1.0, 0.4],
-        };
-
+    pub fn set_render_uniforms(&mut self, context: &mut RenderContext, uniforms: RenderUniforms) {
         context.queue().write_buffer(
             &self.render_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[uniforms]),
         );
+    }
 
-        self.render_particles(context);
+    pub fn set_update_uniforms(&mut self, context: &mut RenderContext, uniforms: UpdateUniforms) {
+        context.queue().write_buffer(
+            &self.update_uniforms_buffer,
+            0,
+            bytemuck::cast_slice(&[uniforms]),
+        );
     }
 
     pub fn pause(&mut self) {
@@ -734,17 +722,26 @@ impl ParticleSystem {
         self.start_time = Instant::now();
         self.state = SimulationState::Playing;
 
+        // Reset the indirect draw args
         let indirect_args = DrawIndirectArgs {
             vertex_count: 1,
             instance_count: 0,
             first_vertex: 0,
             first_instance: 0,
         };
+
         queue.write_buffer(
             &self.compact_uniforms_buffer,
             0,
             bytemuck::cast_slice(&[indirect_args]),
         );
+
+        // Clear both particle buffers
+        let buffer_size = (self.max_particles as usize * std::mem::size_of::<Particle>()) as u64;
+        let zeros = vec![0u8; buffer_size as usize];
+
+        queue.write_buffer(&self.particles_buffers[0], 0, &zeros);
+        queue.write_buffer(&self.particles_buffers[1], 0, &zeros);
     }
 
     pub fn elapsed_time(&self) -> f32 {
